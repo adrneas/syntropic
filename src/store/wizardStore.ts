@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { IWizardState } from '../core/types/wizard';
+import type { IWizardState, ViewMode, ToolMode } from '../core/types/wizard';
 
 interface WizardStore extends IWizardState {
   // Navigation actions
@@ -7,10 +7,23 @@ interface WizardStore extends IWizardState {
   nextStep: () => void;
   prevStep: () => void;
   
+  // UI Layer actions
+  setViewMode: (mode: ViewMode) => void;
+  setToolMode: (mode: ToolMode) => void;
+  setBrushSize: (size: number) => void;
+  
   // Terrain actions
   updateTerrainPolygon: (polygon: Array<{x: number, y: number}>, area: number) => void;
+  undoTerrainPolygon: () => void;
+  redoTerrainPolygon: () => void;
   updateNorthAngle: (angle: number) => void;
   updateElevationGrid: (grid: Float32Array) => void;
+
+  // History state for UI buttons
+  history: {
+    past: Array<Array<{x: number, y: number}>>;
+    future: Array<Array<{x: number, y: number}>>;
+  };
 
   // Residence actions
   updateResidenceArea: (area: number) => void;
@@ -26,14 +39,18 @@ interface WizardStore extends IWizardState {
   resetWizard: () => void;
 }
 
-const initialState: IWizardState = {
+const initialState: IWizardState & { history: { past: any[], future: any[] } } = {
   currentStep: 1,
+  viewMode: '3D',
+  toolMode: 'select',
+  brushSize: 10, // Default 10m
   terrain: {
     polygon: [],
     area: 0,
     northAngle: 0,
     elevationGrid: null,
   },
+  history: { past: [], future: [] },
   residence: {
     area: 0,
     appliances: {},
@@ -54,16 +71,52 @@ const APPLIANCES_DATA: Record<string, { powerW: number; hoursPerDay: number }> =
   'computador': { powerW: 150, hoursPerDay: 8 },
 };
 
-export const useWizardStore = create<WizardStore>((set, get) => ({
+export const useWizardStore = create<WizardStore>((set) => ({
   ...initialState,
 
   setStep: (step) => set({ currentStep: step }),
   nextStep: () => set((state) => ({ currentStep: Math.min(state.currentStep + 1, 5) })),
   prevStep: () => set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
 
+  setViewMode: (mode) => set({ viewMode: mode }),
+  setToolMode: (mode) => set({ toolMode: mode }),
+  setBrushSize: (size) => set({ brushSize: size }),
+
   updateTerrainPolygon: (polygon, area) => set((state) => ({
-    terrain: { ...state.terrain, polygon, area }
+    terrain: { ...state.terrain, polygon, area },
+    history: {
+      past: [...state.history.past, state.terrain.polygon],
+      future: [] // clear future on new action
+    }
   })),
+
+  undoTerrainPolygon: () => set((state) => {
+    if (state.history.past.length === 0) return state;
+    const previous = state.history.past[state.history.past.length - 1];
+    const newPast = state.history.past.slice(0, -1);
+    
+    return {
+      terrain: { ...state.terrain, polygon: previous },
+      history: {
+        past: newPast,
+        future: [state.terrain.polygon, ...state.history.future]
+      }
+    };
+  }),
+
+  redoTerrainPolygon: () => set((state) => {
+    if (state.history.future.length === 0) return state;
+    const next = state.history.future[0];
+    const newFuture = state.history.future.slice(1);
+
+    return {
+      terrain: { ...state.terrain, polygon: next },
+      history: {
+        past: [...state.history.past, state.terrain.polygon],
+        future: newFuture
+      }
+    };
+  }),
   
   updateNorthAngle: (angle) => set((state) => ({
     terrain: { ...state.terrain, northAngle: angle }

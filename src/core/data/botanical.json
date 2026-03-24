@@ -1,0 +1,74 @@
+[
+  {
+    "id": "eucalyptus-grandis",
+    "popularName": "Eucalipto",
+    "scientificName": "Eucalyptus grandis",
+    "stratum": "EMERGENTE",
+    "succession": "PLACENTA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "SUBTROPICAL"],
+    "waterRequirement": "HIGH",
+    "spacingArea": 9,
+    "companions": ["banana-prata", "cafe-arabica"],
+    "antagonists": ["pinus-elliottii"]
+  },
+  {
+    "id": "banana-prata",
+    "popularName": "Banana Prata",
+    "scientificName": "Musa spp.",
+    "stratum": "ALTO",
+    "succession": "SECUNDARIA_I",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 4,
+    "companions": ["eucalyptus-grandis", "cacau"],
+    "antagonists": []
+  },
+  {
+    "id": "cafe-arabica",
+    "popularName": "Café Arábica",
+    "scientificName": "Coffea arabica",
+    "stratum": "MEDIO",
+    "succession": "CLIMAX",
+    "climateCompatibility": ["SUBTROPICAL", "TROPICAL_UMIDO"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 2.25,
+    "companions": ["eucalyptus-grandis", "banana-prata"],
+    "antagonists": []
+  },
+  {
+    "id": "feijao-guandu",
+    "popularName": "Feijão Guandu",
+    "scientificName": "Cajanus cajan",
+    "stratum": "BAIXO",
+    "succession": "PLACENTA_I",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 1,
+    "companions": ["milho"],
+    "antagonists": []
+  },
+  {
+    "id": "mandioca",
+    "popularName": "Mandioca",
+    "scientificName": "Manihot esculenta",
+    "stratum": "BAIXO",
+    "succession": "PLACENTA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 1,
+    "companions": ["milho", "feijao-guandu"],
+    "antagonists": []
+  },
+  {
+    "id": "abacaxi",
+    "popularName": "Abacaxi",
+    "scientificName": "Ananas comosus",
+    "stratum": "RASTEIRO",
+    "succession": "SECUNDARIA_I",
+    "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO", "TROPICAL_UMIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 0.5,
+    "companions": ["mandioca"],
+    "antagonists": []
+  }
+]

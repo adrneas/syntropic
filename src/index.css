@@ -1,16 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #fdfdfd;
-  --foreground: #111111;
+@theme {
+  --color-figma-bg: #e5e5e5;
+  --color-figma-panel: #ffffff;
+  --color-figma-border: #e6e6e6;
+  --color-figma-border-hover: #cccccc;
+  --color-figma-text: #333333;
+  --color-figma-text-muted: #8a8a8a;
+  --color-figma-blue: #18a0fb;
+  --color-figma-blue-hover: #0d8de2;
+  --color-figma-danger: #f24822;
+  --color-figma-success: #1bc47d;
+  --color-figma-hover: #f5f5f5;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-  background-color: var(--background);
-  color: var(--foreground);
+@layer base {
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  body {
+    @apply bg-figma-bg text-figma-text font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px; /* Figma native base size */
+  }
+
+  /* Custom Scrollbar to mimic desktop apps */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply border-[4px] border-solid border-transparent bg-neutral-600 bg-clip-content rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-500;
+  }
+}
+
+/* Base utility for figma panels */
+@layer utilities {
+  .figma-panel {
+    @apply bg-figma-panel border border-figma-border rounded-[3px];
+  }
+  
+  .figma-input {
+    @apply bg-white border border-figma-border hover:border-[#cccccc] focus:border-figma-blue focus:outline-none rounded-[2px] px-2 py-1 transition-colors text-figma-text shadow-sm;
+  }
+  
+  .figma-btn {
+    @apply flex items-center justify-center gap-2 px-3 py-1.5 rounded-[3px] font-medium transition-colors;
+  }
+  
+  .figma-btn-primary {
+    @apply bg-figma-blue hover:bg-figma-blue-hover text-white disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .figma-btn-secondary {
+    @apply border border-figma-border bg-transparent hover:bg-figma-hover text-figma-text disabled:opacity-50 disabled:cursor-not-allowed;
+  }
 }

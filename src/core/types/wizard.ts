@@ -1,7 +1,12 @@
 export type GenerationStatus = 'idle' | 'processing' | 'completed';
+export type ViewMode = '2D' | '3D';
+export type ToolMode = 'select' | 'draw' | 'elevation';
 
 export interface IWizardState {
   currentStep: number; // 1 a 5
+  viewMode: ViewMode;
+  toolMode: ToolMode;
+  brushSize: number; // Raio do pincel de altimetria
   terrain: {
     polygon: Array<{x: number, y: number}>;
     area: number; // em m²

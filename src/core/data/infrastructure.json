@@ -1,0 +1,86 @@
+[
+  {
+    "id": "cisterna-ferrocimento",
+    "name": "Cisterna de Ferrocimento",
+    "category": "AGUA",
+    "footprintWidth": 5,
+    "footprintLength": 5,
+    "placementRules": {
+      "requiresKeyline": true,
+      "maxSlopePercentage": 10,
+      "proximityToResidence": "NEAR"
+    }
+  },
+  {
+    "id": "lago-aquicultura",
+    "name": "Lago de Aquicultura",
+    "category": "AGUA",
+    "footprintWidth": 15,
+    "footprintLength": 10,
+    "placementRules": {
+      "requiresKeyline": true,
+      "maxSlopePercentage": 5,
+      "proximityToResidence": "ANY"
+    }
+  },
+  {
+    "id": "apiario",
+    "name": "Apiário Móvel",
+    "category": "ANIMAL",
+    "footprintWidth": 3,
+    "footprintLength": 2,
+    "placementRules": {
+      "requiresKeyline": false,
+      "maxSlopePercentage": 30,
+      "proximityToResidence": "FAR"
+    }
+  },
+  {
+    "id": "aviario-movel",
+    "name": "Aviário Rotativo (Galinheiro Móvel)",
+    "category": "ANIMAL",
+    "footprintWidth": 4,
+    "footprintLength": 6,
+    "placementRules": {
+      "requiresKeyline": false,
+      "maxSlopePercentage": 15,
+      "proximityToResidence": "NEAR"
+    }
+  },
+  {
+    "id": "viveiro-mudas",
+    "name": "Viveiro de Mudas",
+    "category": "PROCESSAMENTO",
+    "footprintWidth": 5,
+    "footprintLength": 10,
+    "placementRules": {
+      "requiresKeyline": false,
+      "maxSlopePercentage": 10,
+      "proximityToResidence": "NEAR"
+    }
+  },
+  {
+    "id": "compostagem",
+    "name": "Pátio de Compostagem",
+    "category": "PROCESSAMENTO",
+    "footprintWidth": 6,
+    "footprintLength": 6,
+    "placementRules": {
+      "requiresKeyline": false,
+      "maxSlopePercentage": 15,
+      "proximityToResidence": "ANY"
+    }
+  },
+  {
+    "id": "biodigestor",
+    "name": "Biodigestor Indiano",
+    "category": "ENERGIA",
+    "footprintWidth": 4,
+    "footprintLength": 4,
+    "placementRules": {
+      "requiresKeyline": false,
+      "maxSlopePercentage": 5,
+      "proximityToResidence": "NEAR"
+    }
+  }
+]
