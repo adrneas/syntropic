@@ -1,25 +1,32 @@
 import { useMemo, useState } from 'react';
 import { Cuboid, Map, PencilLine, Trees, Zap } from 'lucide-react';
+import type { Stratum } from '../../core/types/botanical';
+import type { GeneratedProject } from '../../core/types/generation';
+import type { InfrastructureCategory } from '../../core/types/infrastructure';
 import { useWizardStore } from '../../store/wizardStore';
 import { Scene, type ProjectInspectionEntity } from '../../webgl/Scene';
+import {
+  getInfrastructureCategoryToken,
+  getProjectVisualToken,
+  getStratumVisualToken,
+  PROJECT_VISUAL_GROUP_LABELS,
+  type ProjectVisualGroup,
+  type ProjectVisualToken,
+  withAlpha,
+} from './projectVisualTokens';
 
-const LEGEND_ITEMS = [
-  { label: 'Residencia', color: '#5b6676' },
-  { label: 'Solar', color: '#2691c2' },
-  { label: 'Keyline', color: '#0f766e' },
-  { label: 'Linha de plantio', color: '#5b9a57' },
-  { label: 'Entrelinha produtiva', color: '#9fbf63' },
-  { label: 'Corredor operacional', color: '#d97706' },
-  { label: 'Emergente', color: '#1f6d4d' },
-  { label: 'Alto', color: '#2d8f57' },
-  { label: 'Medio', color: '#5aa05e' },
-  { label: 'Baixo', color: '#8dbb61' },
-  { label: 'Rasteiro', color: '#bfd97b' },
-  { label: 'Agua', color: '#3b82c4' },
-  { label: 'Animal', color: '#9a6b34' },
-  { label: 'Processamento', color: '#4f7f52' },
-  { label: 'Energia', color: '#d97706' },
-] as const;
+interface LegendGroupItem {
+  description: string;
+  token: ProjectVisualToken;
+  value: string;
+}
+
+interface LegendGroupData {
+  emptyState: string;
+  id: ProjectVisualGroup;
+  items: LegendGroupItem[];
+  summary: string;
+}
 
 export const ProjectVisualization = () => {
   const generatedProject = useWizardStore((state) => state.generatedProject);
@@ -41,7 +48,9 @@ export const ProjectVisualization = () => {
     );
     const flatCellRatio =
       generatedProject.slopeGrid.length > 0
-        ? (generatedProject.report.topography.flatCellCount / generatedProject.slopeGrid.length) * 100
+        ? (generatedProject.report.topography.flatCellCount /
+            generatedProject.slopeGrid.length) *
+          100
         : 0;
 
     return [
@@ -65,14 +74,20 @@ export const ProjectVisualization = () => {
             ? 'sem entrelinha manejada'
             : `${generatedProject.report.botanical.dominantInterRowProfile} / ${generatedProject.report.botanical.averageInterRowMaintenanceCycleDays}d`,
       },
-      { label: 'Banco botanico', value: `${generatedProject.report.botanical.compatibleSpeciesCount} especies` },
+      {
+        label: 'Banco botanico',
+        value: `${generatedProject.report.botanical.compatibleSpeciesCount} especies`,
+      },
       {
         label: 'Areas planas',
         value: `${flatCellRatio.toFixed(0)}% da malha`,
       },
       {
         label: 'Solar atendido',
-        value: missingSolarArea > 0 ? `parcial (${missingSolarArea.toFixed(1)} m2 faltantes)` : 'sim',
+        value:
+          missingSolarArea > 0
+            ? `parcial (${missingSolarArea.toFixed(1)} m2 faltantes)`
+            : 'sim',
       },
       {
         label: 'Espacamento',
@@ -90,6 +105,14 @@ export const ProjectVisualization = () => {
       },
     ];
   }, [generatedProject]);
+  const legendGroups = useMemo(
+    () => (generatedProject ? buildLegendGroups(generatedProject) : []),
+    [generatedProject],
+  );
+  const selectedEntityToken = selectedEntity
+    ? getProjectVisualToken(selectedEntity.visualTokenId)
+    : null;
+  const SelectedEntityIcon = selectedEntityToken?.icon;
 
   if (!generatedProject) {
     return null;
@@ -123,7 +146,9 @@ export const ProjectVisualization = () => {
         <div className="flex rounded-[5px] bg-figma-bg p-0.5">
           <button
             className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
-              viewMode === '2D' ? 'bg-white text-figma-text shadow-sm' : 'text-figma-text-muted'
+              viewMode === '2D'
+                ? 'bg-white text-figma-text shadow-sm'
+                : 'text-figma-text-muted'
             }`}
             onClick={() => setViewMode('2D')}
           >
@@ -132,7 +157,9 @@ export const ProjectVisualization = () => {
           </button>
           <button
             className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
-              viewMode === '3D' ? 'bg-white text-figma-text shadow-sm' : 'text-figma-text-muted'
+              viewMode === '3D'
+                ? 'bg-white text-figma-text shadow-sm'
+                : 'text-figma-text-muted'
             }`}
             onClick={() => setViewMode('3D')}
           >
@@ -157,10 +184,29 @@ export const ProjectVisualization = () => {
             <>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[14px] font-semibold text-figma-text">{selectedEntity.title}</div>
-                  <div className="mt-1 inline-flex rounded-full bg-[#e5f4ff] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-figma-blue">
-                    {selectedEntity.badge}
+                  <div className="text-[14px] font-semibold text-figma-text">
+                    {selectedEntity.title}
                   </div>
+                  {selectedEntityToken && SelectedEntityIcon && (
+                    <div
+                      className="mt-2 inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                      style={{
+                        backgroundColor: withAlpha(selectedEntityToken.color, '16'),
+                        borderColor: withAlpha(selectedEntityToken.color, '3A'),
+                        color: selectedEntityToken.color,
+                      }}
+                    >
+                      <span
+                        className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-1 font-mono text-[9px] leading-none"
+                        style={{
+                          borderColor: withAlpha(selectedEntityToken.color, '3A'),
+                        }}
+                      >
+                        <SelectedEntityIcon size={10} strokeWidth={2.4} />
+                      </span>
+                      {selectedEntity.badge}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -184,7 +230,9 @@ export const ProjectVisualization = () => {
                     <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
                       {detail.label}
                     </div>
-                    <div className="mt-1 text-[12px] font-mono text-figma-text">{detail.value}</div>
+                    <div className="mt-1 text-[12px] font-mono text-figma-text">
+                      {detail.value}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -192,7 +240,8 @@ export const ProjectVisualization = () => {
           ) : (
             <>
               <div className="rounded-[6px] border border-[#bce4ff] bg-[#e5f4ff] px-3 py-2 text-[11px] leading-relaxed text-[#0065a8]">
-                Clique em residencia, solar, plantas ou infraestrutura para abrir a justificativa e os dados da alocacao.
+                Passe o cursor para ler grupo, estrato ou guia. Clique para abrir a
+                justificativa completa da alocacao.
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -204,7 +253,9 @@ export const ProjectVisualization = () => {
                     <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
                       {item.label}
                     </div>
-                    <div className="mt-1 text-[12px] font-mono text-figma-text">{item.value}</div>
+                    <div className="mt-1 text-[12px] font-mono text-figma-text">
+                      {item.value}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -213,21 +264,67 @@ export const ProjectVisualization = () => {
         </div>
       </div>
 
-      <div className="absolute left-6 bottom-6 z-10 flex w-[320px] flex-col gap-3 rounded-[8px] border border-figma-border bg-white/95 p-4 shadow-lg backdrop-blur-sm">
+      <div className="absolute left-6 bottom-6 z-10 flex max-h-[calc(100vh-156px)] w-[360px] flex-col gap-3 overflow-hidden rounded-[8px] border border-figma-border bg-white/95 p-4 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
           <Zap size={13} className="text-figma-blue" />
           Legenda Operacional
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {LEGEND_ITEMS.map((item) => (
-            <div
-              className="flex items-center gap-2 rounded-[4px] border border-figma-border bg-figma-bg px-2 py-1.5 text-[11px] text-figma-text"
-              key={item.label}
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
+          {legendGroups.map((group) => (
+            <section
+              className="rounded-[6px] border border-figma-border bg-figma-bg/70 p-3"
+              key={group.id}
             >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-              {item.label}
-            </div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-figma-text-muted">
+                  {PROJECT_VISUAL_GROUP_LABELS[group.id]}
+                </span>
+                <span className="rounded-[4px] bg-white px-1.5 py-0.5 text-[10px] font-mono text-figma-text-muted">
+                  {group.summary}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {group.items.length === 0 ? (
+                  <div className="rounded-[4px] border border-dashed border-figma-border bg-white px-2 py-2 text-[10px] leading-relaxed text-figma-text-muted">
+                    {group.emptyState}
+                  </div>
+                ) : (
+                  group.items.map((item) => (
+                    <div
+                      className="flex items-center justify-between gap-3 rounded-[4px] border border-figma-border bg-white px-2 py-2"
+                      key={`${group.id}-${item.token.id}`}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="inline-flex h-7 min-w-7 items-center justify-center rounded-[4px] border bg-white px-1 font-mono text-[10px] font-semibold"
+                          style={{
+                            backgroundColor: withAlpha(item.token.color, '14'),
+                            borderColor: withAlpha(item.token.color, '36'),
+                            color: item.token.color,
+                          }}
+                        >
+                          <item.token.icon size={14} strokeWidth={2.1} />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-[11px] font-medium text-figma-text">
+                            {item.token.label}
+                          </div>
+                          <div className="text-[10px] leading-relaxed text-figma-text-muted">
+                            {item.description}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span className="rounded-[4px] bg-figma-bg px-1.5 py-0.5 text-[10px] font-mono text-figma-text">
+                        {item.value}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -248,3 +345,123 @@ export const ProjectVisualization = () => {
     </div>
   );
 };
+
+function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
+  const infrastructureCounts: Record<InfrastructureCategory, number> = {
+    AGUA: 0,
+    ANIMAL: 0,
+    ENERGIA: 0,
+    PROCESSAMENTO: 0,
+  };
+  const stratumCounts: Record<Stratum, number> = {
+    ALTO: 0,
+    BAIXO: 0,
+    EMERGENTE: 0,
+    MEDIO: 0,
+    RASTEIRO: 0,
+  };
+
+  project.report.infrastructure.placements.forEach((placement) => {
+    if (placement.status === 'placed' && placement.category) {
+      infrastructureCounts[placement.category] += 1;
+    }
+  });
+
+  project.plants.forEach((plant) => {
+    stratumCounts[plant.stratum] += 1;
+  });
+
+  const baseItems: LegendGroupItem[] = [
+    {
+      description: 'Base habitacional e polo inicial do sistema.',
+      token: getProjectVisualToken('residence'),
+      value: `${project.residence.footprint.width}x${project.residence.footprint.length}m`,
+    },
+  ];
+
+  if (project.residence.roofSolarAreaUsed > 0) {
+    baseItems.push({
+      description: 'Area fotovoltaica absorvida na cobertura.',
+      token: getProjectVisualToken('solar-roof'),
+      value: `${project.residence.roofSolarAreaUsed.toFixed(1)} m2`,
+    });
+  }
+
+  if (project.groundSolarPlacement) {
+    baseItems.push({
+      description: 'Excedente solar posicionado no solo.',
+      token: getProjectVisualToken('solar-ground'),
+      value: `${project.groundSolarPlacement.providedArea.toFixed(1)} m2`,
+    });
+  }
+
+  const guideItems: LegendGroupItem[] = [
+    {
+      description: 'Leitura hidrologica principal do relevo.',
+      token: getProjectVisualToken('guide-keyline'),
+      value: String(project.keylines.length),
+    },
+    {
+      description: `Linhas produtivas com espacamento base de ${project.report.layout.rowSpacingMeters}m.`,
+      token: getProjectVisualToken('guide-planting-row'),
+      value: String(project.plantingRows.length),
+    },
+    {
+      description: 'Faixas de cobertura e manejo entre linhas.',
+      token: getProjectVisualToken('guide-interrow'),
+      value: String(project.interRows.length),
+    },
+    {
+      description: 'Rotas de acesso e manutencao do sistema.',
+      token: getProjectVisualToken('guide-service-corridor'),
+      value: String(project.serviceCorridors.length),
+    },
+  ];
+
+  const stratumItems = (
+    ['EMERGENTE', 'ALTO', 'MEDIO', 'BAIXO', 'RASTEIRO'] as const
+  )
+    .filter((stratum) => stratumCounts[stratum] > 0)
+    .map((stratum) => ({
+      description: `${stratumCounts[stratum]} plantas com este estrato ativo na geracao.`,
+      token: getStratumVisualToken(stratum),
+      value: String(stratumCounts[stratum]),
+    }));
+
+  const infrastructureItems = (
+    ['AGUA', 'ANIMAL', 'PROCESSAMENTO', 'ENERGIA'] as const
+  )
+    .filter((category) => infrastructureCounts[category] > 0)
+    .map((category) => ({
+      description: `${infrastructureCounts[category]} modulos alocados nesta categoria.`,
+      token: getInfrastructureCategoryToken(category),
+      value: String(infrastructureCounts[category]),
+    }));
+
+  return [
+    {
+      emptyState: 'Nenhum elemento base visivel nesta iteracao.',
+      id: 'BASE',
+      items: baseItems,
+      summary: `${baseItems.length} tipos`,
+    },
+    {
+      emptyState: 'Nenhuma geometria operacional disponivel.',
+      id: 'GUIDES',
+      items: guideItems,
+      summary: `${project.keylines.length + project.plantingRows.length + project.interRows.length + project.serviceCorridors.length} guias`,
+    },
+    {
+      emptyState: 'Nenhum estrato botanico ativo nesta iteracao.',
+      id: 'STRATA',
+      items: stratumItems,
+      summary: `${project.plants.length} plantas`,
+    },
+    {
+      emptyState: 'Nenhuma infraestrutura secundaria foi alocada.',
+      id: 'INFRA',
+      items: infrastructureItems,
+      summary: `${project.report.infrastructure.placed} modulos`,
+    },
+  ];
+}

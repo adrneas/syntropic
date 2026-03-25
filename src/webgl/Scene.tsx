@@ -10,6 +10,15 @@ import {
   PerspectiveCamera,
 } from '@react-three/drei';
 import * as THREE from 'three';
+import {
+  getGuideVisualToken,
+  getInfrastructureCategoryToken,
+  getPlantVisualSubtitle,
+  getProjectVisualToken,
+  getStratumVisualToken,
+  type ProjectVisualTokenId,
+  withAlpha,
+} from '../components/project/projectVisualTokens';
 import { useWizardStore } from '../store/wizardStore';
 import {
   clamp,
@@ -63,12 +72,15 @@ export interface ProjectInspectionEntity {
   description: string;
   details: ProjectInspectionDetail[];
   title: string;
+  visualTokenId: ProjectVisualTokenId;
 }
 
 interface ProjectHoverLabel {
   id: string;
-  label: string;
   position: [number, number, number];
+  subtitle: string;
+  title: string;
+  visualTokenId: ProjectVisualTokenId;
 }
 
 interface SceneProps {
@@ -147,6 +159,13 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
   const plants = generatedProject?.plants ?? [];
   const plantingRows = generatedProject?.plantingRows ?? [];
   const serviceCorridors = generatedProject?.serviceCorridors ?? [];
+  const hoveredProjectToken = hoveredProjectLabel
+    ? getProjectVisualToken(hoveredProjectLabel.visualTokenId)
+    : null;
+  const keylineVisualToken = getGuideVisualToken('KEYLINE');
+  const plantingRowVisualToken = getGuideVisualToken('PLANTING_ROW');
+  const interRowVisualToken = getGuideVisualToken('INTERROW');
+  const serviceCorridorVisualToken = getGuideVisualToken('SERVICE_CORRIDOR');
 
   const setProjectHoverLabel = (hoverLabel: ProjectHoverLabel | null) => {
     setHoveredProjectLabel(hoverLabel);
@@ -292,12 +311,10 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
     return result;
   }, [shouldRenderTerrainMesh, terrain.elevationGrid, terrain.gridHeight, terrain.gridWidth, terrain.polygon, terrainGridConfig]);
 
-  const points = terrain.polygon.map((point) => {
-    const height = getElevationAtWorld(point.x, point.y, terrain, terrain.elevationGrid);
-
-    return new THREE.Vector3(point.x, height + 0.1, point.y);
-  });
-  const drawPoints = points.length > 2 ? [...points, points[0].clone()] : points;
+  const terrainBoundaryPoints = useMemo(
+    () => buildTerrainBoundaryPoints(terrain.polygon, terrain, terrain.elevationGrid, 0.18),
+    [terrain],
+  );
 
   const edges: EdgeMeasurement[] = [];
 
@@ -774,13 +791,13 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
 
           {keylines.map((guide) => (
             <Line
-              color="#0f766e"
+              color={keylineVisualToken.color}
               key={guide.id}
               lineWidth={2.2}
               onPointerOut={() => clearProjectHoverLabel(guide.id)}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 'Keyline', 0.42));
+                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.42));
               }}
               opacity={0.95}
               points={toLinePoints(guide, 0.18)}
@@ -790,13 +807,13 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
 
           {plantingRows.map((guide) => (
             <Line
-              color="#5b9a57"
+              color={plantingRowVisualToken.color}
               key={guide.id}
               lineWidth={1.4}
               onPointerOut={() => clearProjectHoverLabel(guide.id)}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 'Linha de plantio', 0.34));
+                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.34));
               }}
               opacity={0.85}
               points={toLinePoints(guide, 0.12)}
@@ -806,13 +823,13 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
 
           {interRows.map((guide) => (
             <Line
-              color="#9fbf63"
+              color={interRowVisualToken.color}
               key={guide.id}
               lineWidth={1.1}
               onPointerOut={() => clearProjectHoverLabel(guide.id)}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 'Entrelinha produtiva', 0.3));
+                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.3));
               }}
               opacity={0.7}
               points={toLinePoints(guide, 0.1)}
@@ -822,13 +839,13 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
 
           {serviceCorridors.map((guide) => (
             <Line
-              color="#d97706"
+              color={serviceCorridorVisualToken.color}
               key={guide.id}
               lineWidth={1.8}
               onPointerOut={() => clearProjectHoverLabel(guide.id)}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 'Corredor operacional', 0.38));
+                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.38));
               }}
               opacity={0.9}
               points={toLinePoints(guide, 0.16)}
@@ -838,15 +855,38 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
         </>
       )}
 
-      {isProjectMode && hoveredProjectLabel && (
+      {isProjectMode && hoveredProjectLabel && hoveredProjectToken && (
         <Html
           center
           position={hoveredProjectLabel.position}
           style={{ pointerEvents: 'none' }}
           zIndexRange={[120, 0]}
         >
-          <div className="pointer-events-none whitespace-nowrap rounded-full border border-neutral-200/80 bg-white/95 px-2 py-1 text-[10px] font-medium text-neutral-700 shadow-md backdrop-blur-sm">
-            {hoveredProjectLabel.label}
+          <div className="pointer-events-none min-w-[160px] rounded-[10px] border border-neutral-200/80 bg-white/95 px-2.5 py-2 shadow-md backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-flex h-7 min-w-7 items-center justify-center rounded-[5px] border bg-white px-1"
+                style={{
+                  backgroundColor: withAlpha(hoveredProjectToken.color, '16'),
+                  borderColor: withAlpha(hoveredProjectToken.color, '36'),
+                  color: hoveredProjectToken.color,
+                }}
+              >
+                <hoveredProjectToken.icon size={14} strokeWidth={2.2} />
+              </span>
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-semibold text-neutral-800">
+                  {hoveredProjectLabel.title}
+                </span>
+                <span
+                  className="text-[9px] uppercase tracking-wide"
+                  style={{ color: hoveredProjectToken.color }}
+                >
+                  {hoveredProjectLabel.subtitle}
+                </span>
+              </div>
+            </div>
           </div>
         </Html>
       )}
@@ -890,12 +930,15 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
         shadow-camera-top={150}
       />
 
-      {drawPoints.length > 1 && (!isProjectMode || viewMode === '2D') && (
+      {terrainBoundaryPoints.length > 1 && (
         <Line
           color={isProjectMode ? '#1d4ed8' : '#18a0fb'}
-          lineWidth={viewMode === '2D' ? 3 : 2}
+          depthTest={viewMode !== '2D'}
+          depthWrite={false}
+          lineWidth={viewMode === '2D' ? 3.4 : 2.4}
           opacity={isProjectMode ? 0.95 : 1}
-          points={drawPoints}
+          points={terrainBoundaryPoints}
+          renderOrder={viewMode === '2D' ? 1200 : 40}
           transparent={isProjectMode}
         />
       )}
@@ -978,8 +1021,10 @@ const ResidenceMesh = ({ residence, isSelected, onHoverChange, onSelect }: Resid
       event.stopPropagation();
       onHoverChange({
         id: 'residence',
-        label: 'Residencia principal',
         position: [residence.worldPosition.x, residence.worldPosition.z + 2.45, residence.worldPosition.y],
+        subtitle: 'Estrutura base do sistema',
+        title: 'Residencia principal',
+        visualTokenId: 'residence',
       });
     }}
     position={[residence.worldPosition.x, residence.worldPosition.z + 1.05, residence.worldPosition.y]}
@@ -987,7 +1032,10 @@ const ResidenceMesh = ({ residence, isSelected, onHoverChange, onSelect }: Resid
     receiveShadow
   >
     <boxGeometry args={[residence.footprint.width, 2.1, residence.footprint.length]} />
-    <meshStandardMaterial color={isSelected ? '#274c77' : '#5b6676'} roughness={0.7} />
+    <meshStandardMaterial
+      color={isSelected ? '#274c77' : getProjectVisualToken('residence').color}
+      roughness={0.7}
+    />
   </mesh>
 );
 
@@ -1009,15 +1057,21 @@ const RoofSolarMesh = ({ residence, isSelected, onHoverChange, onSelect }: RoofS
       event.stopPropagation();
       onHoverChange({
         id: 'solar-roof',
-        label: 'Solar no telhado',
         position: [residence.worldPosition.x, residence.worldPosition.z + 2.75, residence.worldPosition.y],
+        subtitle: 'Energia integrada a cobertura',
+        title: 'Painel solar integrado',
+        visualTokenId: 'solar-roof',
       });
     }}
     position={[residence.worldPosition.x, residence.worldPosition.z + 2.12, residence.worldPosition.y]}
     rotation={[-Math.PI / 2, residence.rotationRadians, 0]}
   >
     <planeGeometry args={[residence.footprint.width * 0.84, residence.footprint.length * 0.84]} />
-    <meshStandardMaterial color={isSelected ? '#4fd1ff' : '#2691c2'} metalness={0.25} roughness={0.35} />
+    <meshStandardMaterial
+      color={isSelected ? '#4fd1ff' : getProjectVisualToken('solar-roof').color}
+      metalness={0.25}
+      roughness={0.35}
+    />
   </mesh>
 );
 
@@ -1040,8 +1094,10 @@ const GroundSolarMesh = ({ solar, isSelected, onHoverChange, onSelect }: GroundS
       event.stopPropagation();
       onHoverChange({
         id: 'solar-ground',
-        label: 'Solar em solo',
         position: [solar.worldPosition.x, solar.worldPosition.z + 1.05, solar.worldPosition.y],
+        subtitle: 'Energia complementar no terreno',
+        title: 'Array solar em solo',
+        visualTokenId: 'solar-ground',
       });
     }}
     position={[solar.worldPosition.x, solar.worldPosition.z + 0.18, solar.worldPosition.y]}
@@ -1049,7 +1105,11 @@ const GroundSolarMesh = ({ solar, isSelected, onHoverChange, onSelect }: GroundS
     receiveShadow
   >
     <boxGeometry args={[solar.footprint.width, 0.36, solar.footprint.length]} />
-    <meshStandardMaterial color={isSelected ? '#4fd1ff' : '#1e6f9b'} metalness={0.3} roughness={0.4} />
+    <meshStandardMaterial
+      color={isSelected ? '#4fd1ff' : getProjectVisualToken('solar-ground').color}
+      metalness={0.3}
+      roughness={0.4}
+    />
   </mesh>
 );
 
@@ -1078,10 +1138,13 @@ const InfrastructureMesh = ({ placement, isSelected, onHoverChange, onSelect }: 
       onPointerOut={() => onHoverChange(null)}
       onPointerOver={(event) => {
         event.stopPropagation();
+        const token = getInfrastructureCategoryToken(placement.category);
         onHoverChange({
           id: `infra-${placement.infrastructureId}`,
-          label: placement.name,
           position: [placement.worldPosition.x, placement.worldPosition.z + height + 0.7, placement.worldPosition.y],
+          subtitle: token.label,
+          title: placement.name,
+          visualTokenId: token.id,
         });
       }}
       position={[placement.worldPosition.x, placement.worldPosition.z + height / 2, placement.worldPosition.y]}
@@ -1113,10 +1176,13 @@ const PlantMesh = ({ plant, isSelected, onHoverChange, onSelect }: PlantMeshProp
       onPointerOut={() => onHoverChange(null)}
       onPointerOver={(event) => {
         event.stopPropagation();
+        const token = getStratumVisualToken(plant.stratum);
         onHoverChange({
           id: plant.id,
-          label: plant.popularName,
           position: [plant.worldPosition.x, plant.worldPosition.z + radius * 2.3, plant.worldPosition.y],
+          subtitle: getPlantVisualSubtitle(plant.stratum, plant.managementZone),
+          title: plant.popularName,
+          visualTokenId: token.id,
         });
       }}
       position={[plant.worldPosition.x, plant.worldPosition.z + radius, plant.worldPosition.y]}
@@ -1327,17 +1393,68 @@ function getElevationAtWorld(
   return sampleElevation(elevationGrid, terrain.gridWidth, coordinates.x, coordinates.y);
 }
 
+function buildTerrainBoundaryPoints(
+  polygon: TerrainPoint[],
+  terrain: {
+    cellSize: number;
+    elevationGrid: Float32Array;
+    gridHeight: number;
+    gridWidth: number;
+  },
+  elevationGrid: Float32Array,
+  yOffset: number,
+): THREE.Vector3[] {
+  if (polygon.length < 2) {
+    return [];
+  }
+
+  const isClosedPolygon = polygon.length > 2;
+  const segmentCount = isClosedPolygon ? polygon.length : polygon.length - 1;
+  const sampleSpacing = Math.max(terrain.cellSize * 0.75, 0.75);
+  const boundaryPoints: THREE.Vector3[] = [];
+
+  for (let index = 0; index < segmentCount; index += 1) {
+    const start = polygon[index];
+    const end = polygon[(index + 1) % polygon.length];
+    const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
+
+    if (segmentLength <= Number.EPSILON) {
+      continue;
+    }
+
+    const sampleCount = Math.max(1, Math.ceil(segmentLength / sampleSpacing));
+
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+      const t = sampleIndex / sampleCount;
+      const x = THREE.MathUtils.lerp(start.x, end.x, t);
+      const y = THREE.MathUtils.lerp(start.y, end.y, t);
+      const height = getElevationAtWorld(x, y, terrain, elevationGrid);
+
+      boundaryPoints.push(new THREE.Vector3(x, height + yOffset, y));
+    }
+  }
+
+  const lastPoint = isClosedPolygon ? polygon[0] : polygon[polygon.length - 1];
+  const lastHeight = getElevationAtWorld(lastPoint.x, lastPoint.y, terrain, elevationGrid);
+  boundaryPoints.push(new THREE.Vector3(lastPoint.x, lastHeight + yOffset, lastPoint.y));
+
+  return boundaryPoints;
+}
+
 function toLinePoints(guide: LayoutGuide, yOffset: number): THREE.Vector3[] {
   return guide.points.map((point) => new THREE.Vector3(point.x, point.z + yOffset, point.y));
 }
 
-function buildGuideHoverLabel(guide: LayoutGuide, label: string, yOffset: number): ProjectHoverLabel {
+function buildGuideHoverLabel(guide: LayoutGuide, yOffset: number): ProjectHoverLabel {
+  const token = getGuideVisualToken(guide.type);
   const position = getGuideMidpointPosition(guide, yOffset);
 
   return {
     id: guide.id,
-    label,
     position,
+    subtitle: `${Math.round(guide.length)}m de extensao`,
+    title: token.label,
+    visualTokenId: token.id,
   };
 }
 
@@ -1393,7 +1510,7 @@ function getGuideMidpointPosition(guide: LayoutGuide, yOffset: number): [number,
 function buildResidenceInspectionEntity(residence: ResidencePlacement): ProjectInspectionEntity {
   return {
     id: 'residence',
-    badge: 'Residencia',
+    badge: getProjectVisualToken('residence').label,
     description:
       residence.requiredSolarArea > 0
         ? 'Residencia posicionada deterministicamente a partir do centroide e usada como base para o dimensionamento solar.'
@@ -1406,13 +1523,14 @@ function buildResidenceInspectionEntity(residence: ResidencePlacement): ProjectI
       { label: 'Solar no telhado', value: `${residence.roofSolarAreaUsed.toFixed(1)} / ${residence.roofSolarCapacityArea.toFixed(1)} m2` },
     ],
     title: 'Residencia Principal',
+    visualTokenId: 'residence',
   };
 }
 
 function buildRoofSolarInspectionEntity(residence: ResidencePlacement): ProjectInspectionEntity {
   return {
     id: 'solar-roof',
-    badge: 'Solar no Telhado',
+    badge: getProjectVisualToken('solar-roof').label,
     description:
       'Parte da demanda solar foi absorvida pela cobertura da residencia antes de ocupar area de solo.',
     details: [
@@ -1422,6 +1540,7 @@ function buildRoofSolarInspectionEntity(residence: ResidencePlacement): ProjectI
       { label: 'Orientacao', value: `${Math.round((residence.rotationRadians * 180) / Math.PI)}deg` },
     ],
     title: 'Painel Solar Integrado',
+    visualTokenId: 'solar-roof',
   };
 }
 
@@ -1431,7 +1550,7 @@ function buildGroundSolarInspectionEntity(
 ): ProjectInspectionEntity {
   return {
     id: 'solar-ground',
-    badge: 'Solar em Solo',
+    badge: getProjectVisualToken('solar-ground').label,
     description:
       'Array fotovoltaico complementar alocado no terreno para absorver o excedente nao acomodado no telhado.',
     details: [
@@ -1442,6 +1561,7 @@ function buildGroundSolarInspectionEntity(
       { label: 'Orientacao', value: `${Math.round((solar.rotationRadians * 180) / Math.PI)}deg` },
     ],
     title: 'Array Fotovoltaico Complementar',
+    visualTokenId: 'solar-ground',
   };
 }
 
@@ -1452,9 +1572,11 @@ function buildInfrastructureInspectionEntity(
     worldPosition: NonNullable<InfrastructurePlacement['worldPosition']>;
   },
 ): ProjectInspectionEntity {
+  const token = getInfrastructureCategoryToken(placement.category);
+
   return {
     id: `infra-${placement.infrastructureId}`,
-    badge: placement.category,
+    badge: token.label,
     description: placement.rationale,
     details: [
       { label: 'Pegada', value: `${placement.footprint.width}m x ${placement.footprint.length}m` },
@@ -1463,13 +1585,16 @@ function buildInfrastructureInspectionEntity(
       { label: 'Status', value: placement.status },
     ],
     title: placement.name,
+    visualTokenId: token.id,
   };
 }
 
 function buildPlantInspectionEntity(plant: BotanicalPlacement): ProjectInspectionEntity {
+  const token = getStratumVisualToken(plant.stratum);
+
   return {
     id: plant.id,
-    badge: plant.managementZone === 'INTERROW' ? `${plant.stratum} / INTERROW` : plant.stratum,
+    badge: getPlantVisualSubtitle(plant.stratum, plant.managementZone),
     description: buildPlantDescription(plant),
     details: [
       { label: 'Nome cientifico', value: plant.scientificName },
@@ -1484,6 +1609,7 @@ function buildPlantInspectionEntity(plant: BotanicalPlacement): ProjectInspectio
       { label: 'Antagonistas', value: plant.antagonists.length ? plant.antagonists.join(', ') : 'nenhum' },
     ],
     title: plant.popularName,
+    visualTokenId: token.id,
   };
 }
 
@@ -1492,18 +1618,7 @@ function getInfrastructureColor(category: NonNullable<InfrastructurePlacement['c
     return '#1769aa';
   }
 
-  switch (category) {
-    case 'AGUA':
-      return '#3b82c4';
-    case 'ENERGIA':
-      return '#d97706';
-    case 'ANIMAL':
-      return '#9a6b34';
-    case 'PROCESSAMENTO':
-      return '#4f7f52';
-    default:
-      return '#666666';
-  }
+  return getInfrastructureCategoryToken(category).color;
 }
 
 function getInfrastructureHeight(category: NonNullable<InfrastructurePlacement['category']>): number {
@@ -1550,6 +1665,8 @@ function getStratumColor(
     return '#0f766e';
   }
 
+  const baseColor = getStratumVisualToken(stratum).color;
+
   if (managementZone === 'INTERROW') {
     switch (stratum) {
       case 'BAIXO':
@@ -1557,24 +1674,11 @@ function getStratumColor(
       case 'RASTEIRO':
         return '#d6e68a';
       default:
-        return '#88b85c';
+        return baseColor;
     }
   }
 
-  switch (stratum) {
-    case 'EMERGENTE':
-      return '#1f6d4d';
-    case 'ALTO':
-      return '#2d8f57';
-    case 'MEDIO':
-      return '#5aa05e';
-    case 'BAIXO':
-      return '#8dbb61';
-    case 'RASTEIRO':
-      return '#bfd97b';
-    default:
-      return '#5aa05e';
-  }
+  return baseColor;
 }
 
 function buildPlantDescription(plant: BotanicalPlacement): string {
