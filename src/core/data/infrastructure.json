@@ -8,7 +8,13 @@
     "placementRules": {
       "requiresKeyline": true,
       "maxSlopePercentage": 10,
-      "proximityToResidence": "NEAR"
+      "maxCriticalSlopePercentage": 16,
+      "maxCriticalCellRatio": 0.12,
+      "maxAltitudeVariationMeters": 0.8,
+      "proximityToResidence": "NEAR",
+      "preferredDistanceMinMeters": 8,
+      "preferredDistanceMaxMeters": 28,
+      "topographyPreference": "LOWEST"
     }
   },
   {
@@ -20,31 +26,49 @@
     "placementRules": {
       "requiresKeyline": true,
       "maxSlopePercentage": 5,
-      "proximityToResidence": "ANY"
+      "maxCriticalSlopePercentage": 9,
+      "maxCriticalCellRatio": 0.08,
+      "maxAltitudeVariationMeters": 1.6,
+      "proximityToResidence": "ANY",
+      "preferredDistanceMinMeters": 30,
+      "preferredDistanceMaxMeters": 120,
+      "topographyPreference": "LOWEST"
     }
   },
   {
     "id": "apiario",
-    "name": "Apiário Móvel",
+    "name": "Apiario Movel",
     "category": "ANIMAL",
     "footprintWidth": 3,
     "footprintLength": 2,
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 30,
-      "proximityToResidence": "FAR"
+      "maxCriticalSlopePercentage": 40,
+      "maxCriticalCellRatio": 0.18,
+      "maxAltitudeVariationMeters": 0.7,
+      "proximityToResidence": "FAR",
+      "preferredDistanceMinMeters": 95,
+      "preferredDistanceMaxMeters": 160,
+      "topographyPreference": "STABLE"
     }
   },
   {
     "id": "aviario-movel",
-    "name": "Aviário Rotativo (Galinheiro Móvel)",
+    "name": "Aviario Rotativo (Galinheiro Movel)",
     "category": "ANIMAL",
     "footprintWidth": 4,
     "footprintLength": 6,
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 15,
-      "proximityToResidence": "NEAR"
+      "maxCriticalSlopePercentage": 22,
+      "maxCriticalCellRatio": 0.14,
+      "maxAltitudeVariationMeters": 0.9,
+      "proximityToResidence": "NEAR",
+      "preferredDistanceMinMeters": 12,
+      "preferredDistanceMaxMeters": 35,
+      "topographyPreference": "MID"
     }
   },
   {
@@ -56,19 +80,31 @@
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 10,
-      "proximityToResidence": "NEAR"
+      "maxCriticalSlopePercentage": 16,
+      "maxCriticalCellRatio": 0.1,
+      "maxAltitudeVariationMeters": 0.85,
+      "proximityToResidence": "NEAR",
+      "preferredDistanceMinMeters": 8,
+      "preferredDistanceMaxMeters": 22,
+      "topographyPreference": "HIGHEST"
     }
   },
   {
     "id": "compostagem",
-    "name": "Pátio de Compostagem",
+    "name": "Patio de Compostagem",
     "category": "PROCESSAMENTO",
     "footprintWidth": 6,
     "footprintLength": 6,
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 15,
-      "proximityToResidence": "ANY"
+      "maxCriticalSlopePercentage": 22,
+      "maxCriticalCellRatio": 0.16,
+      "maxAltitudeVariationMeters": 1.1,
+      "proximityToResidence": "ANY",
+      "preferredDistanceMinMeters": 12,
+      "preferredDistanceMaxMeters": 28,
+      "topographyPreference": "MID"
     }
   },
   {
@@ -80,7 +116,13 @@
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 5,
-      "proximityToResidence": "NEAR"
+      "maxCriticalSlopePercentage": 12,
+      "maxCriticalCellRatio": 0.08,
+      "maxAltitudeVariationMeters": 0.65,
+      "proximityToResidence": "NEAR",
+      "preferredDistanceMinMeters": 10,
+      "preferredDistanceMaxMeters": 24,
+      "topographyPreference": "LOWEST"
     }
   }
 ]

@@ -1,26 +1,27 @@
-export type GenerationStatus = 'idle' | 'processing' | 'completed';
+import type { GeneratedProject } from './generation';
+import type { TerrainState } from './terrain';
+import type { ClimateZone } from './botanical';
+
+export type GenerationStatus = 'idle' | 'processing' | 'completed' | 'error';
 export type ViewMode = '2D' | '3D';
 export type ToolMode = 'select' | 'draw' | 'elevation';
 
 export interface IWizardState {
-  currentStep: number; // 1 a 5
+  currentStep: number;
   viewMode: ViewMode;
   toolMode: ToolMode;
-  brushSize: number; // Raio do pincel de altimetria
-  terrain: {
-    polygon: Array<{x: number, y: number}>;
-    area: number; // em m²
-    northAngle: number; // 0 a 360 graus
-    elevationGrid: Float32Array | null; // Estado da malha altimétrica
-  };
+  brushSize: number;
+  terrain: TerrainState;
   residence: {
-    area: number; // em m²
-    appliances: Record<string, number>; // { "chuveiro": 1, "geladeira": 2 }
-    calculatedSolarNeed: number; // em kWh/mês (Calculado em tempo real)
+    area: number;
+    appliances: Record<string, number>;
+    calculatedSolarNeed: number;
   };
-  climate: string; // ID do clima selecionado
+  climate: ClimateZone | '';
   preferences: {
-    infrastructure: Array<string>; // IDs das estruturas selecionadas
+    infrastructure: string[];
   };
   generationStatus: GenerationStatus;
+  generatedProject: GeneratedProject | null;
+  generationError: string | null;
 }

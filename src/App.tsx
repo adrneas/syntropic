@@ -1,5 +1,6 @@
 
 import { WizardLayout } from './components/layout/WizardLayout';
+import { ProjectVisualization } from './components/project/ProjectVisualization';
 import { Step1Terrain } from './components/wizard/Step1Terrain';
 import { Step2Residence } from './components/wizard/Step2Residence';
 import { Step3Climate } from './components/wizard/Step3Climate';
@@ -9,6 +10,12 @@ import { useWizardStore } from './store/wizardStore';
 
 function App() {
   const currentStep = useWizardStore(state => state.currentStep);
+  const generationStatus = useWizardStore(state => state.generationStatus);
+  const generatedProject = useWizardStore(state => state.generatedProject);
+
+  if (generationStatus === 'completed' && generatedProject) {
+    return <ProjectVisualization />;
+  }
 
   return (
     <WizardLayout>

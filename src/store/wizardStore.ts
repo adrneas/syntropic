@@ -1,180 +1,313 @@
 import { create } from 'zustand';
-import type { IWizardState, ViewMode, ToolMode } from '../core/types/wizard';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { GeneratedProject } from '../core/types/generation';
+import type { TerrainPoint } from '../core/types/terrain';
+import type { IWizardState, ToolMode, ViewMode } from '../core/types/wizard';
+import {
+  calculatePolygonArea,
+  createFlatElevationGrid,
+  DEFAULT_TERRAIN_CELL_SIZE,
+  DEFAULT_TERRAIN_GRID_HEIGHT,
+  DEFAULT_TERRAIN_GRID_WIDTH,
+} from '../core/utils/terrain';
+import { typedArrayReplacer, typedArrayReviver } from './persistence';
 
 interface WizardStore extends IWizardState {
-  // Navigation actions
   setStep: (step: number) => void;
   nextStep: () => void;
   prevStep: () => void;
-  
-  // UI Layer actions
   setViewMode: (mode: ViewMode) => void;
   setToolMode: (mode: ToolMode) => void;
   setBrushSize: (size: number) => void;
-  
-  // Terrain actions
-  updateTerrainPolygon: (polygon: Array<{x: number, y: number}>, area: number) => void;
+  updateTerrainPolygon: (polygon: TerrainPoint[]) => void;
+  replaceTerrainPolygon: (polygon: TerrainPoint[]) => void;
+  commitTerrainPolygonHistory: (previousPolygon: TerrainPoint[]) => void;
   undoTerrainPolygon: () => void;
   redoTerrainPolygon: () => void;
   updateNorthAngle: (angle: number) => void;
   updateElevationGrid: (grid: Float32Array) => void;
-
-  // History state for UI buttons
+  clearTerrain: () => void;
   history: {
-    past: Array<Array<{x: number, y: number}>>;
-    future: Array<Array<{x: number, y: number}>>;
+    past: TerrainPoint[][];
+    future: TerrainPoint[][];
   };
-
-  // Residence actions
   updateResidenceArea: (area: number) => void;
   updateAppliance: (id: string, quantity: number) => void;
-  calculateSolarNeed: () => void; // Internal or triggered externally
-  
-  // Climate & Preferences
-  setClimate: (climateId: string) => void;
+  setClimate: (climateId: IWizardState['climate']) => void;
   toggleInfrastructure: (infraId: string) => void;
-
-  // Generation
   setGenerationStatus: (status: IWizardState['generationStatus']) => void;
+  setGeneratedProject: (project: GeneratedProject | null) => void;
+  setGenerationError: (error: string | null) => void;
+  beginEditingProject: () => void;
   resetWizard: () => void;
 }
 
-const initialState: IWizardState & { history: { past: any[], future: any[] } } = {
-  currentStep: 1,
-  viewMode: '3D',
-  toolMode: 'select',
-  brushSize: 10, // Default 10m
-  terrain: {
-    polygon: [],
-    area: 0,
-    northAngle: 0,
-    elevationGrid: null,
-  },
-  history: { past: [], future: [] },
-  residence: {
-    area: 0,
-    appliances: {},
-    calculatedSolarNeed: 0,
-  },
-  climate: '',
-  preferences: {
-    infrastructure: [],
-  },
-  generationStatus: 'idle',
-};
+type PersistedWizardState = Pick<
+  WizardStore,
+  | 'brushSize'
+  | 'climate'
+  | 'currentStep'
+  | 'history'
+  | 'preferences'
+  | 'residence'
+  | 'terrain'
+  | 'toolMode'
+  | 'viewMode'
+>;
 
-// Appliance power definitions for real-time solar calculation
+const WIZARD_STORAGE_KEY = 'ssi-wizard-state';
+
 const APPLIANCES_DATA: Record<string, { powerW: number; hoursPerDay: number }> = {
-  'chuveiro': { powerW: 5500, hoursPerDay: 0.5 },
+  chuveiro: { powerW: 5500, hoursPerDay: 0.5 },
   'ar-condicionado': { powerW: 1500, hoursPerDay: 8 },
-  'geladeira': { powerW: 250, hoursPerDay: 24 },
-  'computador': { powerW: 150, hoursPerDay: 8 },
+  geladeira: { powerW: 250, hoursPerDay: 24 },
+  computador: { powerW: 150, hoursPerDay: 8 },
 };
 
-export const useWizardStore = create<WizardStore>((set) => ({
-  ...initialState,
+function createInitialState(): IWizardState & { history: WizardStore['history'] } {
+  return {
+    currentStep: 1,
+    viewMode: '2D',
+    toolMode: 'select',
+    brushSize: 10,
+    terrain: {
+      polygon: [],
+      area: 0,
+      northAngle: 0,
+      gridWidth: DEFAULT_TERRAIN_GRID_WIDTH,
+      gridHeight: DEFAULT_TERRAIN_GRID_HEIGHT,
+      cellSize: DEFAULT_TERRAIN_CELL_SIZE,
+      elevationGrid: createFlatElevationGrid(),
+    },
+    history: { past: [], future: [] },
+    residence: {
+      area: 0,
+      appliances: {},
+      calculatedSolarNeed: 0,
+    },
+    climate: '',
+    preferences: {
+      infrastructure: [],
+    },
+    generationStatus: 'idle',
+    generatedProject: null,
+    generationError: null,
+  };
+}
 
-  setStep: (step) => set({ currentStep: step }),
-  nextStep: () => set((state) => ({ currentStep: Math.min(state.currentStep + 1, 5) })),
-  prevStep: () => set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
+function calculateSolarNeed(appliances: Record<string, number>): number {
+  let totalKWhMonth = 0;
 
-  setViewMode: (mode) => set({ viewMode: mode }),
-  setToolMode: (mode) => set({ toolMode: mode }),
-  setBrushSize: (size) => set({ brushSize: size }),
+  Object.entries(appliances).forEach(([id, quantity]) => {
+    const data = APPLIANCES_DATA[id];
 
-  updateTerrainPolygon: (polygon, area) => set((state) => ({
-    terrain: { ...state.terrain, polygon, area },
-    history: {
-      past: [...state.history.past, state.terrain.polygon],
-      future: [] // clear future on new action
+    if (!data) {
+      return;
     }
-  })),
 
-  undoTerrainPolygon: () => set((state) => {
-    if (state.history.past.length === 0) return state;
-    const previous = state.history.past[state.history.past.length - 1];
-    const newPast = state.history.past.slice(0, -1);
-    
-    return {
-      terrain: { ...state.terrain, polygon: previous },
-      history: {
-        past: newPast,
-        future: [state.terrain.polygon, ...state.history.future]
-      }
-    };
-  }),
+    totalKWhMonth += ((data.powerW * data.hoursPerDay * quantity) * 30) / 1000;
+  });
 
-  redoTerrainPolygon: () => set((state) => {
-    if (state.history.future.length === 0) return state;
-    const next = state.history.future[0];
-    const newFuture = state.history.future.slice(1);
+  return Math.round(totalKWhMonth * 10) / 10;
+}
 
-    return {
-      terrain: { ...state.terrain, polygon: next },
-      history: {
-        past: [...state.history.past, state.terrain.polygon],
-        future: newFuture
-      }
-    };
-  }),
-  
-  updateNorthAngle: (angle) => set((state) => ({
-    terrain: { ...state.terrain, northAngle: angle }
-  })),
+function resetGeneration<T extends object>(partialState: T): T & Pick<WizardStore, 'generationStatus' | 'generatedProject' | 'generationError'> {
+  return {
+    ...partialState,
+    generationStatus: 'idle',
+    generatedProject: null,
+    generationError: null,
+  };
+}
 
-  updateElevationGrid: (grid) => set((state) => ({
-    terrain: { ...state.terrain, elevationGrid: grid }
-  })),
+export const useWizardStore = create<WizardStore>()(
+  persist(
+    (set) => ({
+      ...createInitialState(),
 
-  updateResidenceArea: (area) => set((state) => ({
-    residence: { ...state.residence, area }
-  })),
+      setStep: (step) => set({ currentStep: step }),
+      nextStep: () => set((state) => ({ currentStep: Math.min(state.currentStep + 1, 5) })),
+      prevStep: () => set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
 
-  updateAppliance: (id, quantity) => set((state) => {
-    const newAppliances = { ...state.residence.appliances };
-    if (quantity <= 0) {
-      delete newAppliances[id];
-    } else {
-      newAppliances[id] = quantity;
-    }
-    return {
-      residence: { ...state.residence, appliances: newAppliances }
-    };
-  }),
+      setViewMode: (mode) => set({ viewMode: mode }),
+      setToolMode: (mode) => set({ toolMode: mode }),
+      setBrushSize: (size) => set({ brushSize: size }),
 
-  calculateSolarNeed: () => set((state) => {
-    let totalKWhMonth = 0;
-    const { appliances } = state.residence;
-    
-    Object.entries(appliances).forEach(([id, quantity]) => {
-      const data = APPLIANCES_DATA[id];
-      if (data) {
-        // (W * h/day * 30 days) / 1000 = kWh/month
-        const dailyWh = data.powerW * data.hoursPerDay * quantity;
-        totalKWhMonth += (dailyWh * 30) / 1000;
-      }
-    });
+      updateTerrainPolygon: (polygon) => set((state) =>
+        resetGeneration({
+          terrain: {
+            ...state.terrain,
+            polygon,
+            area: calculatePolygonArea(polygon),
+          },
+          history: {
+            past: [...state.history.past, state.terrain.polygon],
+            future: [],
+          },
+        }),
+      ),
 
-    return {
-      residence: { ...state.residence, calculatedSolarNeed: Math.round(totalKWhMonth * 10) / 10 }
-    };
-  }),
+      replaceTerrainPolygon: (polygon) => set((state) =>
+        resetGeneration({
+          terrain: {
+            ...state.terrain,
+            polygon,
+            area: calculatePolygonArea(polygon),
+          },
+        }),
+      ),
 
-  setClimate: (climateId) => set({ climate: climateId }),
+      commitTerrainPolygonHistory: (previousPolygon) => set((state) => ({
+        history: {
+          past: [...state.history.past, previousPolygon],
+          future: [],
+        },
+      })),
 
-  toggleInfrastructure: (infraId) => set((state) => {
-    const isSelected = state.preferences.infrastructure.includes(infraId);
-    return {
-      preferences: {
-        ...state.preferences,
-        infrastructure: isSelected
-          ? state.preferences.infrastructure.filter(id => id !== infraId)
-          : [...state.preferences.infrastructure, infraId]
-      }
-    };
-  }),
+      undoTerrainPolygon: () => set((state) => {
+        if (state.history.past.length === 0) {
+          return state;
+        }
 
-  setGenerationStatus: (status) => set({ generationStatus: status }),
+        const previousPolygon = state.history.past[state.history.past.length - 1];
 
-  resetWizard: () => set(initialState),
-}));
+        return resetGeneration({
+          terrain: {
+            ...state.terrain,
+            polygon: previousPolygon,
+            area: calculatePolygonArea(previousPolygon),
+          },
+          history: {
+            past: state.history.past.slice(0, -1),
+            future: [state.terrain.polygon, ...state.history.future],
+          },
+        });
+      }),
+
+      redoTerrainPolygon: () => set((state) => {
+        if (state.history.future.length === 0) {
+          return state;
+        }
+
+        const nextPolygon = state.history.future[0];
+
+        return resetGeneration({
+          terrain: {
+            ...state.terrain,
+            polygon: nextPolygon,
+            area: calculatePolygonArea(nextPolygon),
+          },
+          history: {
+            past: [...state.history.past, state.terrain.polygon],
+            future: state.history.future.slice(1),
+          },
+        });
+      }),
+
+      updateNorthAngle: (angle) => set((state) =>
+        resetGeneration({
+          terrain: {
+            ...state.terrain,
+            northAngle: angle,
+          },
+        }),
+      ),
+
+      updateElevationGrid: (grid) => set((state) =>
+        resetGeneration({
+          terrain: {
+            ...state.terrain,
+            elevationGrid: grid,
+          },
+        }),
+      ),
+
+      clearTerrain: () => set((state) =>
+        resetGeneration({
+          terrain: {
+            ...state.terrain,
+            polygon: [],
+            area: 0,
+            northAngle: 0,
+            elevationGrid: createFlatElevationGrid(state.terrain.gridWidth, state.terrain.gridHeight),
+          },
+          history: { past: [], future: [] },
+        }),
+      ),
+
+      updateResidenceArea: (area) => set((state) =>
+        resetGeneration({
+          residence: {
+            ...state.residence,
+            area: Math.max(0, area),
+          },
+        }),
+      ),
+
+      updateAppliance: (id, quantity) => set((state) => {
+        const nextAppliances = { ...state.residence.appliances };
+
+        if (quantity <= 0) {
+          delete nextAppliances[id];
+        } else {
+          nextAppliances[id] = quantity;
+        }
+
+        return resetGeneration({
+          residence: {
+            ...state.residence,
+            appliances: nextAppliances,
+            calculatedSolarNeed: calculateSolarNeed(nextAppliances),
+          },
+        });
+      }),
+
+      setClimate: (climateId) => set(resetGeneration({ climate: climateId })),
+
+      toggleInfrastructure: (infraId) => set((state) => {
+        const alreadySelected = state.preferences.infrastructure.includes(infraId);
+
+        return resetGeneration({
+          preferences: {
+            ...state.preferences,
+            infrastructure: alreadySelected
+              ? state.preferences.infrastructure.filter((currentId) => currentId !== infraId)
+              : [...state.preferences.infrastructure, infraId],
+          },
+        });
+      }),
+
+      setGenerationStatus: (status) => set({ generationStatus: status }),
+      setGeneratedProject: (project) => set({ generatedProject: project }),
+      setGenerationError: (error) => set({ generationError: error }),
+      beginEditingProject: () => set((state) => ({
+        currentStep: 1,
+        generationError: null,
+        generatedProject: null,
+        generationStatus: 'idle',
+        toolMode: 'select',
+        viewMode: state.viewMode === '3D' ? '3D' : '2D',
+      })),
+
+      resetWizard: () => set(createInitialState()),
+    }),
+    {
+      name: WIZARD_STORAGE_KEY,
+      partialize: (state): PersistedWizardState => ({
+        brushSize: state.brushSize,
+        climate: state.climate,
+        currentStep: state.currentStep,
+        history: state.history,
+        preferences: state.preferences,
+        residence: state.residence,
+        terrain: state.terrain,
+        toolMode: state.toolMode,
+        viewMode: state.viewMode,
+      }),
+      storage: createJSONStorage(() => localStorage, {
+        replacer: typedArrayReplacer,
+        reviver: typedArrayReviver,
+      }),
+    },
+  ),
+);

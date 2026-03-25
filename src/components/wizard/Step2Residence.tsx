@@ -2,11 +2,10 @@ import { useWizardStore } from '../../store/wizardStore';
 import { Home, Zap, Monitor, Snowflake, Coffee, Droplet } from 'lucide-react';
 
 export const Step2Residence = () => {
-  const { residence, updateResidenceArea, updateAppliance, calculateSolarNeed } = useWizardStore();
+  const { residence, updateResidenceArea, updateAppliance } = useWizardStore();
   
   const handleApplianceChange = (id: string, qty: number) => {
     updateAppliance(id, Math.max(0, qty));
-    calculateSolarNeed();
   };
 
   const appliances = [

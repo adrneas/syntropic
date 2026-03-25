@@ -1,63 +1,183 @@
+import { AlertTriangle, Cpu, Database, MapPinned, Trees } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
-import { Database, Cpu } from 'lucide-react';
 
 export const Step5Summary = () => {
   const state = useWizardStore();
-  
+  const report = state.generatedProject?.report;
+
   return (
-    <div className="w-[600px] figma-panel shadow-sm animate-in fade-in zoom-in-95 duration-200 bg-figma-panel flex flex-col pointer-events-none">
-      <div className="h-10 border-b border-figma-border flex items-center px-4 font-semibold text-[11px] text-figma-text gap-2 uppercase tracking-wide">
+    <div className="flex w-[760px] flex-col rounded-[3px] border border-figma-border bg-figma-panel shadow-sm">
+      <div className="flex h-10 items-center gap-2 border-b border-figma-border px-4 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
         <Cpu size={13} className="text-figma-success" />
         Procedural Engine Pre-Flight
       </div>
 
-      <div className="p-5 flex flex-col gap-5 bg-figma-bg">
-        <div className="text-[11px] text-[#0065a8] flex gap-2 w-full p-2 bg-[#e5f4ff] border border-[#bce4ff] rounded-[3px]">
-          <span className="font-semibold text-figma-blue">💡 INFO</span> 
-          <span>O canvas central aguarda a aprovação dos tokens de estado abaixo para compilar a matriz 3D procedimental.</span>
+      <div className="flex flex-col gap-5 bg-figma-bg p-5">
+        <div className="flex w-full gap-2 rounded-[3px] border border-[#bce4ff] bg-[#e5f4ff] p-2 text-[11px] text-[#0065a8]">
+          <span className="font-semibold text-figma-blue">INFO</span>
+          <span>Revise os tokens de entrada e execute a primeira analise topografica do projeto.</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="border border-figma-border bg-white p-3 rounded-[3px] shadow-sm">
-            <div className="text-[10px] text-figma-text-muted font-bold tracking-wide uppercase mb-2">1. Terreno Topográfico</div>
-            <div className="space-y-1">
-               <div className="flex justify-between text-[11px]"><span className="text-figma-text-muted">Malha (Z-Grid)</span> <span className="text-figma-text font-mono bg-figma-bg px-1 rounded-sm border border-neutral-100">{state.terrain.area} m²</span></div>
-               <div className="flex justify-between text-[11px]"><span className="text-figma-text-muted">Norte Geográfico</span> <span className="text-figma-text font-mono bg-figma-bg px-1 rounded-sm border border-neutral-100">{state.terrain.northAngle}°</span></div>
-            </div>
-          </div>
+          <SummaryCard
+            title="1. Terreno Topografico"
+            rows={[
+              ['Poligono', `${state.terrain.polygon.length} vertices`],
+              ['Area', `${state.terrain.area} m2`],
+              ['Norte', `${state.terrain.northAngle}°`],
+              ['Malha', `${state.terrain.gridWidth} x ${state.terrain.gridHeight}`],
+            ]}
+          />
 
-          <div className="border border-figma-border bg-white p-3 rounded-[3px] shadow-sm">
-            <div className="text-[10px] text-figma-text-muted font-bold tracking-wide uppercase mb-2">2. Carga Energética</div>
-            <div className="space-y-1">
-               <div className="flex justify-between text-[11px]"><span className="text-figma-text-muted">Área Primária</span> <span className="text-figma-text font-mono bg-figma-bg px-1 rounded-sm border border-neutral-100">{state.residence.area} m²</span></div>
-               <div className="flex justify-between text-[11px]"><span className="text-figma-text-muted">Tensão Calculada</span> <span className="text-figma-blue font-mono font-medium">{state.residence.calculatedSolarNeed} kWh</span></div>
-            </div>
-          </div>
+          <SummaryCard
+            title="2. Carga Energetica"
+            rows={[
+              ['Area primaria', `${state.residence.area} m2`],
+              ['Consumo calculado', `${state.residence.calculatedSolarNeed} kWh`],
+              ['Appliances', `${Object.keys(state.residence.appliances).length} itens`],
+            ]}
+          />
 
-          <div className="border border-figma-border bg-white p-3 rounded-[3px] shadow-sm">
-            <div className="text-[10px] text-figma-text-muted font-bold tracking-wide uppercase mb-2">3. Configuração Bioclimática</div>
-            <div className="text-[11px] font-mono text-figma-text bg-figma-bg border border-figma-border px-2 py-1 inline-block rounded-[2px]">
-               {state.climate ? state.climate : 'NULL_OVERRIDE'}
-            </div>
-          </div>
+          <SummaryCard
+            title="3. Configuracao Bioclimatica"
+            rows={[
+              ['Clima', state.climate || 'Nao selecionado'],
+              ['Status', report ? `${report.botanical.compatibleSpeciesCount} especies compativeis` : 'Aguardando analise'],
+            ]}
+          />
 
-          <div className="border border-figma-border bg-white p-3 rounded-[3px] overflow-hidden shadow-sm">
-            <div className="text-[10px] text-figma-text-muted font-bold tracking-wide uppercase mb-2">4. Infra Estrutural</div>
-            <div className="text-[10px] text-figma-text flex flex-wrap gap-1">
-               {state.preferences.infrastructure.length > 0 ? 
-                 state.preferences.infrastructure.map(i => <span key={i} className="bg-figma-bg border border-neutral-200 rounded-[2px] px-1.5 py-0.5">{i}</span>) : 
-                 <span className="text-figma-text-muted italic">Zero Instâncias Selecionadas</span>
-               }
-            </div>
-          </div>
+          <SummaryCard
+            title="4. Infraestrutura"
+            rows={[
+              ['Solicitadas', `${state.preferences.infrastructure.length}`],
+              ['Status', report ? `${report.infrastructure.placed} alocadas` : 'Aguardando analise'],
+            ]}
+          />
         </div>
+
+        {state.generationStatus === 'processing' && (
+          <div className="flex items-center justify-center gap-2 rounded-[3px] border border-[#bce4ff] bg-[#e5f4ff] p-3 text-[11px] font-medium text-figma-blue animate-pulse">
+            <Database size={13} className="animate-spin" />
+            Executando slope map, fluxo D8 e avaliacao de alocacao de infraestrutura...
+          </div>
+        )}
+
+        {state.generationStatus === 'error' && state.generationError && (
+          <div className="flex items-start gap-2 rounded-[3px] border border-[#ffd7cc] bg-[#fff1ee] p-3 text-[11px] text-figma-danger">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>{state.generationError}</span>
+          </div>
+        )}
+
+        {report && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-[3px] border border-figma-border bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+                <MapPinned size={13} className="text-figma-blue" />
+                Analise Topografica
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <Metric label="Cota minima" value={`${report.topography.minElevation}m`} />
+                <Metric label="Cota maxima" value={`${report.topography.maxElevation}m`} />
+                <Metric label="Cota media" value={`${report.topography.averageElevation}m`} />
+                <Metric label="Declive max." value={`${report.topography.maxSlopePercent}%`} />
+                <Metric label="Areas planas" value={`${report.topography.flatCellCount} celulas`} />
+                <Metric label="Sinks" value={`${report.topography.sinkCount}`} />
+                <Metric label="Restricoes" value={`${report.topography.restrictedCellCount} celulas`} />
+              </div>
+            </div>
+
+            <div className="rounded-[3px] border border-figma-border bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+                <Trees size={13} className="text-figma-success" />
+                Resultado Inicial
+              </div>
+              <div className="space-y-2">
+                <Metric label="Seed" value={`${report.seed}`} />
+                <Metric label="Infra solicitadas" value={`${report.infrastructure.requested}`} />
+                <Metric label="Infra alocadas" value={`${report.infrastructure.placed}`} />
+                <Metric label="Corredores" value={`${report.layout.serviceCorridorCount}`} />
+                <Metric label="Entrelinhas" value={`${report.layout.interRowCount}`} />
+                <Metric label="Manejo base" value={`${report.botanical.dominantInterRowProfile}`} />
+                <Metric label="Ciclo medio" value={`${report.botanical.averageInterRowMaintenanceCycleDays} dias`} />
+                <Metric label="Banco botanico" value={`${report.botanical.compatibleSpeciesCount} especies`} />
+              </div>
+            </div>
+
+            <div className="col-span-2 rounded-[3px] border border-figma-border bg-white p-4 shadow-sm">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+                Alocacao de Infraestrutura
+              </div>
+              <div className="space-y-2 text-[11px]">
+                {report.infrastructure.placements.length === 0 && (
+                  <div className="rounded-[3px] border border-dashed border-figma-border bg-figma-bg px-3 py-2 text-figma-text-muted">
+                    Nenhuma infraestrutura selecionada nesta iteracao.
+                  </div>
+                )}
+
+                {report.infrastructure.placements.map((placement) => (
+                  <div
+                    key={placement.infrastructureId}
+                    className={`rounded-[3px] border px-3 py-2 ${
+                      placement.status === 'placed'
+                        ? 'border-[#bce4ff] bg-[#f4fbff]'
+                        : 'border-[#ffd7cc] bg-[#fff7f5]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-figma-text">{placement.name}</span>
+                      <span
+                        className={`rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] ${
+                          placement.status === 'placed' ? 'bg-[#e5f4ff] text-figma-blue' : 'bg-[#fff1ee] text-figma-danger'
+                        }`}
+                      >
+                        {placement.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-figma-text-muted">{placement.rationale}</div>
+                    {placement.worldPosition && (
+                      <div className="mt-2 font-mono text-[10px] text-figma-text">
+                        x={placement.worldPosition.x.toFixed(1)} y={placement.worldPosition.y.toFixed(1)} z={placement.worldPosition.z.toFixed(1)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      
-      {state.generationStatus === 'processing' && (
-         <div className="border-t border-figma-border p-3 flex items-center justify-center gap-2 bg-[#e5f4ff] text-figma-blue font-medium text-[11px] animate-pulse">
-           <Database size={13} className="animate-spin" /> Compilando Matrizes Biológicas & D8 Flow...
-         </div>
-      )}
     </div>
   );
 };
+
+interface SummaryCardProps {
+  title: string;
+  rows: Array<[string, string]>;
+}
+
+const SummaryCard = ({ title, rows }: SummaryCardProps) => (
+  <div className="rounded-[3px] border border-figma-border bg-white p-3 shadow-sm">
+    <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-figma-text-muted">{title}</div>
+    <div className="space-y-1">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex justify-between gap-3 text-[11px]">
+          <span className="text-figma-text-muted">{label}</span>
+          <span className="rounded-sm border border-neutral-100 bg-figma-bg px-1 font-mono text-figma-text">{value}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+interface MetricProps {
+  label: string;
+  value: string;
+}
+
+const Metric = ({ label, value }: MetricProps) => (
+  <div className="rounded-[3px] border border-figma-border bg-figma-bg px-2 py-1.5">
+    <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">{label}</div>
+    <div className="mt-1 font-mono text-[12px] text-figma-text">{value}</div>
+  </div>
+);

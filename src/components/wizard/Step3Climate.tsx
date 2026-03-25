@@ -1,9 +1,10 @@
 import { useWizardStore } from '../../store/wizardStore';
 import { CloudRain, Sun, Leaf, Snowflake, Wind } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { dataService } from '../../core/services/dataService';
 import type { ClimateZone } from '../../core/types/botanical';
 
-const CLIMATES: Array<{ id: ClimateZone; name: string; icon: any; color: string }> = [
+const CLIMATES: Array<{ id: ClimateZone; name: string; icon: LucideIcon; color: string }> = [
   { id: 'TROPICAL_UMIDO', name: 'Tropical Úmido', icon: CloudRain, color: '#1bc47d' },
   { id: 'TROPICAL_SECO', name: 'Tropical Seco', icon: Sun, color: '#f24822' },
   { id: 'SEMIARIDO', name: 'Semiárido', icon: Wind, color: '#f24822' },

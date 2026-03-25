@@ -1,131 +1,252 @@
-import { useWizardStore } from '../../store/wizardStore';
-import { MousePointer2, Pencil, Spline, Map, Cuboid } from 'lucide-react';
-import { Scene } from '../../webgl/Scene';
 import { useEffect } from 'react';
+import { Cuboid, Map, MousePointer2, Pencil, RotateCcw, RotateCw, Spline, Trash2 } from 'lucide-react';
+import { Scene } from '../../webgl/Scene';
+import { useWizardStore } from '../../store/wizardStore';
 
 export const Step1Terrain = () => {
-  const { 
-    terrain, viewMode, toolMode, brushSize, 
-    setViewMode, setToolMode, setBrushSize, 
-    undoTerrainPolygon, redoTerrainPolygon 
+  const {
+    brushSize,
+    clearTerrain,
+    history,
+    setBrushSize,
+    setToolMode,
+    setViewMode,
+    terrain,
+    toolMode,
+    undoTerrainPolygon,
+    redoTerrainPolygon,
+    updateNorthAngle,
+    viewMode,
   } = useWizardStore();
-  
+  const canOpen3DView = terrain.polygon.length >= 3 && terrain.area > 0;
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+
+        if (event.shiftKey) {
           redoTerrainPolygon();
         } else {
           undoTerrainPolygon();
         }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undoTerrainPolygon, redoTerrainPolygon]);
-  
+  }, [redoTerrainPolygon, undoTerrainPolygon]);
+
+  useEffect(() => {
+    if (!canOpen3DView && viewMode === '3D') {
+      setViewMode('2D');
+    }
+  }, [canOpen3DView, setViewMode, viewMode]);
+
+  const elevationVariation = terrain.elevationGrid.reduce(
+    (accumulator, height) => {
+      accumulator.min = Math.min(accumulator.min, height);
+      accumulator.max = Math.max(accumulator.max, height);
+
+      return accumulator;
+    },
+    { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
+  );
+  const elevationLabel =
+    elevationVariation.max === elevationVariation.min
+      ? 'Plano base'
+      : `${elevationVariation.min.toFixed(1)}m a ${elevationVariation.max.toFixed(1)}m`;
+
   return (
-    <div className="absolute inset-0 w-full h-full flex flex-col bg-figma-bg overflow-hidden animate-in fade-in duration-300">
-         
-      {/* Canvas Viewport */}
-      <div className="absolute inset-0 w-full h-full z-0">
+    <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden bg-figma-bg">
+      <div className="absolute inset-0 z-0 h-full w-full">
         <Scene />
       </div>
 
-      {/* Floating Toolbar (Top Center) */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white p-1.5 border border-figma-border rounded-[6px] shadow-sm z-10">
-         <button 
-           onClick={() => setToolMode('select')}
-           className={`w-8 h-8 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors ${toolMode === 'select' ? 'text-figma-blue bg-[#e5f4ff]' : 'text-figma-text-muted hover:text-figma-text hover:bg-neutral-100'}`} 
-           title="Selecionar">
-            <MousePointer2 size={15} strokeWidth={2.5}/>
-         </button>
-         <button 
-           onClick={() => { setToolMode('draw'); setViewMode('2D'); }}
-           className={`w-8 h-8 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors ${toolMode === 'draw' ? 'text-figma-blue bg-[#e5f4ff]' : 'text-figma-text-muted hover:text-figma-text hover:bg-neutral-100'}`} 
-           title="Desenhar Polígono (Força View 2D)">
-            <Pencil size={15}/>
-         </button>
-         <button 
-           onClick={() => setToolMode('elevation')}
-           className={`w-8 h-8 flex items-center justify-center rounded-[4px] cursor-pointer transition-colors ${toolMode === 'elevation' ? 'text-figma-blue bg-[#e5f4ff]' : 'text-figma-text-muted hover:text-figma-text hover:bg-neutral-100'}`} 
-           title="Pincel de Altitude">
-            <Spline size={15}/>
-         </button> 
-         
-         <div className="w-[1px] h-5 bg-neutral-200 mx-1"></div>
-         
-         <div className="flex bg-neutral-100 p-0.5 rounded-[4px]">
-           <button 
-             onClick={() => setViewMode('2D')}
-             className={`flex items-center gap-1.5 px-3 h-7 rounded-[3px] text-[11px] font-medium transition-all ${viewMode === '2D' ? 'bg-white text-figma-text shadow-sm' : 'text-figma-text-muted hover:text-figma-text'}`}
-           >
-             <Map size={13} /> 2D
-           </button>
-           <button 
-             onClick={() => { setViewMode('3D'); setToolMode('select'); }}
-             className={`flex items-center gap-1.5 px-3 h-7 rounded-[3px] text-[11px] font-medium transition-all ${viewMode === '3D' ? 'bg-white text-figma-text shadow-sm' : 'text-figma-text-muted hover:text-figma-text'}`}
-           >
-             <Cuboid size={13} /> 3D
-           </button>
-         </div>
-      </div>
-      
-      {/* Floating Property Panel (Right Side) */}
-      <div className="absolute top-6 right-6 w-[280px] bg-white border border-figma-border rounded-[6px] shadow-md z-10 flex flex-col overflow-hidden">
-        <div className="h-10 border-b border-figma-border flex items-center px-4 font-semibold text-[11px] text-figma-text uppercase tracking-wide">
-          Configurações do Terreno
+      <div className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 items-center gap-1 rounded-[6px] border border-figma-border bg-white p-1.5 shadow-sm">
+        <button
+          onClick={() => setToolMode('select')}
+          className={`flex h-8 w-8 items-center justify-center rounded-[4px] transition-colors ${
+            toolMode === 'select' ? 'bg-[#e5f4ff] text-figma-blue' : 'text-figma-text-muted hover:bg-neutral-100 hover:text-figma-text'
+          }`}
+          title="Selecionar vertices"
+        >
+          <MousePointer2 size={15} strokeWidth={2.5} />
+        </button>
+        <button
+          onClick={() => {
+            setToolMode('draw');
+            setViewMode('2D');
+          }}
+          className={`flex h-8 w-8 items-center justify-center rounded-[4px] transition-colors ${
+            toolMode === 'draw' ? 'bg-[#e5f4ff] text-figma-blue' : 'text-figma-text-muted hover:bg-neutral-100 hover:text-figma-text'
+          }`}
+          title="Desenhar poligono"
+        >
+          <Pencil size={15} />
+        </button>
+        <button
+          onClick={() => setToolMode('elevation')}
+          className={`flex h-8 w-8 items-center justify-center rounded-[4px] transition-colors ${
+            toolMode === 'elevation' ? 'bg-[#e5f4ff] text-figma-blue' : 'text-figma-text-muted hover:bg-neutral-100 hover:text-figma-text'
+          }`}
+          title="Esculpir altitude"
+        >
+          <Spline size={15} />
+        </button>
+
+        <div className="mx-1 h-5 w-px bg-neutral-200" />
+
+        <div className="flex rounded-[4px] bg-neutral-100 p-0.5">
+          <button
+            onClick={() => setViewMode('2D')}
+            className={`flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[11px] font-medium transition-all ${
+              viewMode === '2D' ? 'bg-white text-figma-text shadow-sm' : 'text-figma-text-muted hover:text-figma-text'
+            }`}
+          >
+            <Map size={13} /> 2D
+          </button>
+          <button
+            onClick={() => {
+              if (!canOpen3DView) {
+                return;
+              }
+
+              setViewMode('3D');
+              setToolMode('select');
+            }}
+            disabled={!canOpen3DView}
+            className={`flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[11px] font-medium transition-all ${
+              viewMode === '3D'
+                ? 'bg-white text-figma-text shadow-sm'
+                : 'text-figma-text-muted hover:text-figma-text disabled:cursor-not-allowed disabled:opacity-45'
+            }`}
+            title={canOpen3DView ? 'Visualizacao 3D' : 'Feche um poligono valido no 2D para habilitar o 3D'}
+          >
+            <Cuboid size={13} /> 3D
+          </button>
         </div>
-        
-        <div className="flex flex-col p-4 gap-4">
-          <div className="flex items-center justify-between">
-            <span className="text-figma-text-muted text-[11px] uppercase font-bold tracking-wide">Área Restrita</span>
-            <div className="flex items-center gap-1">
-               <span className="font-mono bg-figma-bg px-2 py-1 rounded-[3px] w-24 text-figma-text border border-figma-border text-right focus-within:border-figma-blue">{terrain.area}</span>
-               <span className="text-[10px] text-figma-text-muted w-4">m²</span>
-            </div>
+
+        <div className="mx-1 h-5 w-px bg-neutral-200" />
+
+        <button
+          onClick={undoTerrainPolygon}
+          disabled={history.past.length === 0}
+          className="flex h-8 w-8 items-center justify-center rounded-[4px] text-figma-text-muted transition-colors hover:bg-neutral-100 hover:text-figma-text disabled:cursor-not-allowed disabled:opacity-40"
+          title="Desfazer"
+        >
+          <RotateCcw size={14} />
+        </button>
+        <button
+          onClick={redoTerrainPolygon}
+          disabled={history.future.length === 0}
+          className="flex h-8 w-8 items-center justify-center rounded-[4px] text-figma-text-muted transition-colors hover:bg-neutral-100 hover:text-figma-text disabled:cursor-not-allowed disabled:opacity-40"
+          title="Refazer"
+        >
+          <RotateCw size={14} />
+        </button>
+        <button
+          onClick={clearTerrain}
+          className="flex h-8 w-8 items-center justify-center rounded-[4px] text-figma-danger transition-colors hover:bg-[#fff1ee]"
+          title="Limpar terreno"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="absolute right-6 top-6 z-10 flex w-[300px] flex-col overflow-hidden rounded-[6px] border border-figma-border bg-white shadow-md">
+        <div className="flex h-10 items-center border-b border-figma-border px-4 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+          Configuracoes do Terreno
+        </div>
+
+        <div className="flex flex-col gap-4 p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Metric label="Vertices" value={String(terrain.polygon.length)} />
+            <Metric label="Area" value={`${terrain.area} m2`} />
+            <Metric label="Resolucao" value={`${terrain.cellSize}m`} />
+            <Metric label="Malha" value={`${terrain.gridWidth}x${terrain.gridHeight}`} />
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-figma-text-muted text-[11px] uppercase font-bold tracking-wide">Norte Zº</span>
-            <div className="flex items-center gap-1">
-               <span className="font-mono bg-figma-bg px-2 py-1 rounded-[3px] w-14 text-figma-text border border-figma-border text-right">{terrain.northAngle}</span>
-               <span className="text-[10px] text-figma-text-muted w-4">°</span>
-            </div>
-          </div>
-
-          <div className="h-[1px] bg-figma-border -mx-4 w-[calc(100%+32px)]"></div>
-
-          <div className="h-[1px] bg-figma-border -mx-4 w-[calc(100%+32px)]"></div>
-
-          {/* New: Brush Size Control (Only if in elevation mode) */}
-          {toolMode === 'elevation' && (
-            <div className="flex flex-col gap-3 animate-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center justify-between">
-                <span className="text-figma-text-muted text-[11px] uppercase font-bold tracking-wide">Pincel (Raio)</span>
-                <span className="font-mono text-[11px] text-figma-blue font-bold px-1.5 py-0.5 bg-[#e5f4ff] rounded-[3px]">{brushSize}m</span>
-              </div>
-              <input 
-                type="range" 
-                min="2" 
-                max="50" 
-                step="1"
-                value={brushSize}
-                onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-figma-blue hover:bg-neutral-300 transition-colors"
-              />
-            </div>
-          )}
+          <div className="h-px w-full bg-figma-border" />
 
           <div className="flex flex-col gap-2">
-            <span className="text-figma-text-muted text-[11px] uppercase font-bold tracking-wide">Malha Altimétrica</span>
-            <span className={`text-[11px] font-medium px-3 py-2 rounded-[4px] border border-dashed text-center transition-colors ${terrain.elevationGrid ? 'bg-[#e5f4ff] border-figma-blue text-figma-blue' : 'bg-figma-bg border-figma-border text-figma-text-muted hover:border-figma-text hover:text-figma-text cursor-pointer'}`}>
-              {terrain.elevationGrid ? '✓ Z-Grid Validada' : '+ Upload DEM / Importar'}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-figma-text-muted">Norte</span>
+              <span className="rounded-[3px] bg-[#e5f4ff] px-1.5 py-0.5 font-mono text-[11px] font-bold text-figma-blue">
+                {terrain.northAngle}°
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min="0"
+              max="359"
+              step="1"
+              value={terrain.northAngle}
+              onChange={(event) => updateNorthAngle(Number(event.target.value))}
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-figma-blue"
+            />
+
+            <input
+              type="number"
+              min="0"
+              max="359"
+              value={terrain.northAngle}
+              onChange={(event) => updateNorthAngle(Math.max(0, Math.min(359, Number(event.target.value) || 0)))}
+              className="figma-input w-full bg-figma-bg text-right text-[12px] font-mono"
+            />
+          </div>
+
+          {toolMode === 'elevation' && (
+            <>
+              <div className="h-px w-full bg-figma-border" />
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-figma-text-muted">Pincel</span>
+                  <span className="rounded-[3px] bg-[#e5f4ff] px-1.5 py-0.5 font-mono text-[11px] font-bold text-figma-blue">
+                    {brushSize}m
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="50"
+                  step="1"
+                  value={brushSize}
+                  onChange={(event) => setBrushSize(Number(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-figma-blue"
+                />
+              </div>
+            </>
+          )}
+
+          <div className="h-px w-full bg-figma-border" />
+
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-figma-text-muted">Altimetria</span>
+            <span className="rounded-[4px] border border-dashed border-figma-blue bg-[#e5f4ff] px-3 py-2 text-center text-[11px] font-medium text-figma-blue">
+              {elevationLabel}
             </span>
+            <p className="text-[11px] leading-relaxed text-figma-text-muted">
+              Desenhe o perimetro em 2D, ajuste o norte e feche um poligono valido para liberar a visualizacao 3D.
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+interface MetricProps {
+  label: string;
+  value: string;
+}
+
+const Metric = ({ label, value }: MetricProps) => (
+  <div className="rounded-[4px] border border-figma-border bg-figma-bg p-2">
+    <div className="text-[10px] font-bold uppercase tracking-wide text-figma-text-muted">{label}</div>
+    <div className="mt-1 font-mono text-[12px] text-figma-text">{value}</div>
+  </div>
+);
