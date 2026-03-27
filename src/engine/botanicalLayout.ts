@@ -12,7 +12,89 @@ import { getGridIndex, pointInPolygon, worldToGrid } from '../core/utils/terrain
 
 const BOTANICAL_OCCUPATION_VALUE = -3;
 const SERVICE_CORRIDOR_OCCUPATION_VALUE = -4;
-const MAX_PLANTS = 6000;
+// Hard cap on total plant placements per generation run
+const MAX_PLANTS = 15000;
+
+// ─── Spatial index ───
+// Cell size (meters) used for the plant spatial hash — should be slightly larger
+// than the widest interaction radius so one cell lookup covers all neighbors
+const PLANT_SPATIAL_INDEX_CELL_SIZE = 6;
+
+// ─── Phase budgets ───
+// Fraction of max plants allocated to guide-based (line consortium) planting in Phase 1;
+// the remainder is available for area-fill in Phase 2
+const GUIDE_PLANT_BUDGET_RATIO = 0.6;
+
+// ─── Minimum plant canopy radius (meters) ───
+const MIN_CANOPY_RADIUS_METERS = 0.35;
+
+// ─── Support band extension beyond service anchor radius (meters) ───
+// Points within (radius + this value) of a RESIDENCE/PROCESSAMENTO anchor are
+// classified as SUPPORT band rather than FIELD
+const SERVICE_ANCHOR_SUPPORT_EXTENSION_METERS = 14;
+
+// ─── Species interaction search radius (meters) ───
+// Radius used when querying the spatial index for neighbor plants during ranking
+const SPECIES_INTERACTION_QUERY_RADIUS = 8;
+
+// ─── Nitrogen fixation targets (syntropic rule) ───
+// Ratio below which nitrogen fixers are actively boosted
+const NITROGEN_FIXER_TARGET_MIN_RATIO = 0.4;
+// Ratio above which nitrogen fixers are penalised
+const NITROGEN_FIXER_TARGET_MAX_RATIO = 0.6;
+// Minimum neighbors required before nitrogen balance rules are applied
+const NITROGEN_BALANCE_MIN_NEIGHBORS = 3;
+// Minimum neighbors required before climax-deficit boost is applied
+const CLIMAX_DEFICIT_MIN_NEIGHBORS = 4;
+
+// ─── Slope-area budget ───
+// Maximum fraction of max plants reserved for SLOPE_PRODUCTIVE type
+const SLOPE_PRODUCTIVE_MAX_BUDGET_RATIO = 0.22;
+// Minimum per-type budget for non-slope area types
+const NON_SLOPE_MIN_AREA_BUDGET = 8;
+
+// ─── Max plant count scaling thresholds ───
+// Area threshold below which a density factor of 0.9 plants/m² is used
+const PLANT_COUNT_SMALL_AREA_THRESHOLD_M2 = 400;
+// Minimum plant count for small areas
+const PLANT_COUNT_SMALL_AREA_MIN = 360;
+// Density for small areas (plants per m²)
+const PLANT_COUNT_SMALL_AREA_DENSITY = 0.9;
+// Area threshold for medium areas
+const PLANT_COUNT_MEDIUM_AREA_THRESHOLD_M2 = 5000;
+// Density divisor for medium areas (m² per plant base)
+const PLANT_COUNT_MEDIUM_AREA_DIVISOR = 3.5;
+// Additive offset for medium area count
+const PLANT_COUNT_MEDIUM_AREA_OFFSET = 260;
+// Density divisor for large areas
+const PLANT_COUNT_LARGE_AREA_DIVISOR = 6;
+// Additive offset for large area count
+const PLANT_COUNT_LARGE_AREA_OFFSET = 420;
+
+// ─── Minimum plant distance by stratum distance (same stratum) ───
+const MIN_PLANT_DIST_SAME_STRATUM_BASE = 1.1;
+const MIN_PLANT_DIST_SAME_STRATUM_DOMINANT_FACTOR = 0.85;
+const MIN_PLANT_DIST_SAME_STRATUM_SECONDARY_FACTOR = 0.55;
+// Adjacent stratum (distance = 1)
+const MIN_PLANT_DIST_ADJ_STRATUM_BASE = 0.9;
+const MIN_PLANT_DIST_ADJ_STRATUM_DOMINANT_FACTOR = 0.65;
+const MIN_PLANT_DIST_ADJ_STRATUM_SECONDARY_FACTOR = 0.3;
+// Stratum distance = 2
+const MIN_PLANT_DIST_NEAR_STRATUM_BASE = 0.7;
+const MIN_PLANT_DIST_NEAR_STRATUM_DOMINANT_FACTOR = 0.5;
+const MIN_PLANT_DIST_NEAR_STRATUM_SECONDARY_FACTOR = 0.2;
+// Stratum distance >= 3
+const MIN_PLANT_DIST_FAR_STRATUM_BASE = 0.55;
+const MIN_PLANT_DIST_FAR_STRATUM_DOMINANT_FACTOR = 0.35;
+
+// ─── Plant interaction radius ───
+const PLANT_INTERACTION_BASE_METERS = 2.5;
+
+// ─── Operational buffer radii per stratum (meters) ───
+const BUFFER_RADIUS_EMERGENTE_METERS = 2.2;
+const BUFFER_RADIUS_ALTO_METERS = 1.8;
+const BUFFER_RADIUS_MEDIO_METERS = 1.2;
+const BUFFER_RADIUS_BAIXO_METERS = 0.8;
 const SUCCESSION_PATTERNS: Record<Stratum, SuccessionPhase[]> = {
   EMERGENTE: ['PLACENTA_II', 'SECUNDARIA_I', 'SECUNDARIA_II', 'CLIMAX'],
   ALTO: ['SECUNDARIA_I', 'SECUNDARIA_II', 'CLIMAX', 'PLACENTA_II'],
@@ -249,7 +331,7 @@ export function generateBotanicalLayout({
   const speciesByStratum = buildSpeciesByStratum(speciesCatalog);
   const maxPlants = determineMaxPlantCount(terrain.area);
   const plants: BotanicalPlacement[] = [];
-  const spatialIndex = new PlantSpatialIndex(6);
+  const spatialIndex = new PlantSpatialIndex(PLANT_SPATIAL_INDEX_CELL_SIZE);
   const populatedGuides = new Set<string>();
   const populatedAreas = new Set<string>();
   const usedStrata = new Set<Stratum>();
@@ -268,7 +350,7 @@ export function generateBotanicalLayout({
     (guide) => guide.type === 'KEYLINE' || guide.type === 'PLANTING_ROW',
   );
 
-  const guideBudget = Math.round(maxPlants * 0.6);
+  const guideBudget = Math.round(maxPlants * GUIDE_PLANT_BUDGET_RATIO);
   let guidePlantCount = 0;
 
   for (let guideIndex = 0; guideIndex < plantingGuides.length; guideIndex += 1) {
@@ -1003,7 +1085,9 @@ function determineAreaTypeBudgets(
     }
 
     budgets[type] = Math.max(
-      type === 'SLOPE_PRODUCTIVE' ? Math.min(maxPlants, Math.round(maxPlants * 0.22)) : 8,
+      type === 'SLOPE_PRODUCTIVE'
+        ? Math.min(maxPlants, Math.round(maxPlants * SLOPE_PRODUCTIVE_MAX_BUDGET_RATIO))
+        : NON_SLOPE_MIN_AREA_BUDGET,
       Math.round((maxPlants * weightedAreas[type]) / totalWeightedArea),
     );
   });
@@ -1089,13 +1173,13 @@ function rankSpeciesForSlot({
 }): ISpecies[] {
   const orderedCandidates = orderCandidates(candidates, seed);
   const scoredSpecies: ScoredSpecies[] = [];
-  // Query neighbors once for all candidates at this point (max interaction ~ 8m)
-  const nearbyPlants = spatialIndex.queryRadius(point.x, point.y, 8);
+  // Query neighbors once for all candidates at this point
+  const nearbyPlants = spatialIndex.queryRadius(point.x, point.y, SPECIES_INTERACTION_QUERY_RADIUS);
 
   // Boost CLIMAX when under-represented to maintain succession diversity
   const totalNearby = nearbyPlants.length;
   const climaxNearby = nearbyPlants.filter((p) => p.succession === 'CLIMAX').length;
-  const climaxDeficit = totalNearby > 4 && climaxNearby === 0;
+  const climaxDeficit = totalNearby > CLIMAX_DEFICIT_MIN_NEIGHBORS && climaxNearby === 0;
 
   // Syntropic rule: 40-60% of plants should be nitrogen fixers.
   // Boost fixers when ratio drops below 40%, penalize when above 60%.
@@ -1104,8 +1188,8 @@ function rankSpeciesForSlot({
     return spec?.nitrogenFixer === true;
   }).length;
   const fixerRatio = totalNearby > 0 ? fixerCount / totalNearby : 0;
-  const nitrogenDeficit = totalNearby >= 3 && fixerRatio < 0.4;
-  const nitrogenExcess = totalNearby >= 3 && fixerRatio > 0.6;
+  const nitrogenDeficit = totalNearby >= NITROGEN_BALANCE_MIN_NEIGHBORS && fixerRatio < NITROGEN_FIXER_TARGET_MIN_RATIO;
+  const nitrogenExcess = totalNearby >= NITROGEN_BALANCE_MIN_NEIGHBORS && fixerRatio > NITROGEN_FIXER_TARGET_MAX_RATIO;
 
   // Detect active infrastructure influence zones at this point
   const activeInfluences = getActiveInfluences(point, serviceAnchors);
@@ -1389,7 +1473,7 @@ function determineOperationalBand({
       return 'SERVICE_CORE';
     }
 
-    if (distanceToAnchor <= anchor.radiusMeters + 14) {
+    if (distanceToAnchor <= anchor.radiusMeters + SERVICE_ANCHOR_SUPPORT_EXTENSION_METERS) {
       supportMatch = true;
     }
   }
@@ -1805,7 +1889,7 @@ function hasPlantSpacingConflict(
   y: number,
   canopyRadius: number,
 ): boolean {
-  const nearby = spatialIndex.queryRadius(x, y, 6);
+  const nearby = spatialIndex.queryRadius(x, y, PLANT_SPATIAL_INDEX_CELL_SIZE);
 
   for (let index = 0; index < nearby.length; index += 1) {
     const plant = nearby[index];
@@ -1862,13 +1946,13 @@ function hasOperationalBufferConflict(
 function getOperationalBufferRadiusCells(stratum: Stratum, cellSize: number): number {
   switch (stratum) {
     case 'EMERGENTE':
-      return Math.max(2, Math.ceil(2.2 / cellSize));
+      return Math.max(2, Math.ceil(BUFFER_RADIUS_EMERGENTE_METERS / cellSize));
     case 'ALTO':
-      return Math.max(2, Math.ceil(1.8 / cellSize));
+      return Math.max(2, Math.ceil(BUFFER_RADIUS_ALTO_METERS / cellSize));
     case 'MEDIO':
-      return Math.max(1, Math.ceil(1.2 / cellSize));
+      return Math.max(1, Math.ceil(BUFFER_RADIUS_MEDIO_METERS / cellSize));
     case 'BAIXO':
-      return Math.max(1, Math.ceil(0.8 / cellSize));
+      return Math.max(1, Math.ceil(BUFFER_RADIUS_BAIXO_METERS / cellSize));
     case 'RASTEIRO':
       return 0;
     default:
@@ -1887,18 +1971,18 @@ function getMinimumPlantDistance(
   const stratumDistance = Math.abs(STRATUM_ORDER[stratum] - STRATUM_ORDER[otherStratum]);
 
   if (stratumDistance === 0) {
-    return Math.max(1.1, dominantRadius * 0.85 + secondaryRadius * 0.55);
+    return Math.max(MIN_PLANT_DIST_SAME_STRATUM_BASE, dominantRadius * MIN_PLANT_DIST_SAME_STRATUM_DOMINANT_FACTOR + secondaryRadius * MIN_PLANT_DIST_SAME_STRATUM_SECONDARY_FACTOR);
   }
 
   if (stratumDistance === 1) {
-    return Math.max(0.9, dominantRadius * 0.65 + secondaryRadius * 0.3);
+    return Math.max(MIN_PLANT_DIST_ADJ_STRATUM_BASE, dominantRadius * MIN_PLANT_DIST_ADJ_STRATUM_DOMINANT_FACTOR + secondaryRadius * MIN_PLANT_DIST_ADJ_STRATUM_SECONDARY_FACTOR);
   }
 
   if (stratumDistance === 2) {
-    return Math.max(0.7, dominantRadius * 0.5 + secondaryRadius * 0.2);
+    return Math.max(MIN_PLANT_DIST_NEAR_STRATUM_BASE, dominantRadius * MIN_PLANT_DIST_NEAR_STRATUM_DOMINANT_FACTOR + secondaryRadius * MIN_PLANT_DIST_NEAR_STRATUM_SECONDARY_FACTOR);
   }
 
-  return Math.max(0.55, dominantRadius * 0.35);
+  return Math.max(MIN_PLANT_DIST_FAR_STRATUM_BASE, dominantRadius * MIN_PLANT_DIST_FAR_STRATUM_DOMINANT_FACTOR);
 }
 
 function getInteractionDistance(
@@ -1906,11 +1990,11 @@ function getInteractionDistance(
   otherCanopyRadius: number,
   minimumDistance: number,
 ): number {
-  return Math.max(2.5, minimumDistance + Math.max(canopyRadius, otherCanopyRadius));
+  return Math.max(PLANT_INTERACTION_BASE_METERS, minimumDistance + Math.max(canopyRadius, otherCanopyRadius));
 }
 
 function getCanopyRadius(spacingArea: number): number {
-  return roundTo(Math.max(0.35, Math.sqrt(spacingArea / Math.PI)), 2);
+  return roundTo(Math.max(MIN_CANOPY_RADIUS_METERS, Math.sqrt(spacingArea / Math.PI)), 2);
 }
 
 function getPlantReservationRadiusCells(
@@ -2010,15 +2094,15 @@ function determineMaxPlantCount(area: number): number {
   // Scale plant count with terrain area for realistic syntropic density.
   // The O(n²) neighbor check bounds practical limits; spatial indexing
   // would allow higher caps in the future.
-  if (area <= 400) {
-    return Math.min(MAX_PLANTS, Math.max(360, Math.round(area * 0.9)));
+  if (area <= PLANT_COUNT_SMALL_AREA_THRESHOLD_M2) {
+    return Math.min(MAX_PLANTS, Math.max(PLANT_COUNT_SMALL_AREA_MIN, Math.round(area * PLANT_COUNT_SMALL_AREA_DENSITY)));
   }
 
-  if (area <= 5000) {
-    return Math.min(MAX_PLANTS, Math.round(area / 3.5) + 260);
+  if (area <= PLANT_COUNT_MEDIUM_AREA_THRESHOLD_M2) {
+    return Math.min(MAX_PLANTS, Math.round(area / PLANT_COUNT_MEDIUM_AREA_DIVISOR) + PLANT_COUNT_MEDIUM_AREA_OFFSET);
   }
 
-  return Math.min(MAX_PLANTS, Math.round(area / 6) + 420);
+  return Math.min(MAX_PLANTS, Math.round(area / PLANT_COUNT_LARGE_AREA_DIVISOR) + PLANT_COUNT_LARGE_AREA_OFFSET);
 }
 
 // ─── GEOMETRY HELPERS ───

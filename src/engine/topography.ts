@@ -2,7 +2,19 @@ import type { GridCoordinate, TopographySummary } from '../core/types/generation
 import type { TerrainState } from '../core/types/terrain';
 import { getGridIndex, sampleElevation } from '../core/utils/terrain';
 
+// Slope percentage at or below which a cell is considered functionally flat
+// (used to classify flat cells and to discount pathfinding costs on flat terrain)
 export const FLAT_SLOPE_THRESHOLD_PERCENT = 6;
+
+// Slope percentage above which a cell is classified as a restricted zone
+// (too steep for most infrastructure and human movement)
+const RESTRICTED_SLOPE_THRESHOLD_PERCENT = 45;
+
+// Maximum flow-direction index (D8 uses 8 neighbors, indexed 0–7)
+const MAX_FLOW_DIRECTION_INDEX = 7;
+
+// Number of decimal places used when rounding elevation summary values
+const ELEVATION_SUMMARY_PRECISION = 2;
 
 const NEIGHBOR_OFFSETS = [
   { x: 0, y: -1 },
@@ -95,7 +107,7 @@ export function analyzeTopography(terrain: TerrainState): TopographyAnalysis {
         flatCellCount += 1;
       }
 
-      if (localMaxSlope > 45) {
+      if (localMaxSlope > RESTRICTED_SLOPE_THRESHOLD_PERCENT) {
         restrictionGrid[index] = 1;
         restrictedCellCount += 1;
       }
@@ -120,10 +132,10 @@ export function analyzeTopography(terrain: TerrainState): TopographyAnalysis {
     sinkCoordinates,
     slopeGrid,
     summary: {
-      minElevation: roundTo(minElevation),
-      maxElevation: roundTo(maxElevation),
-      averageElevation: roundTo(sumElevation / totalCells),
-      maxSlopePercent: roundTo(maxSlopePercent),
+      minElevation: roundTo(minElevation, ELEVATION_SUMMARY_PRECISION),
+      maxElevation: roundTo(maxElevation, ELEVATION_SUMMARY_PRECISION),
+      averageElevation: roundTo(sumElevation / totalCells, ELEVATION_SUMMARY_PRECISION),
+      maxSlopePercent: roundTo(maxSlopePercent, ELEVATION_SUMMARY_PRECISION),
       flatCellCount,
       restrictedCellCount,
       sinkCount: sinkCoordinates.length,
@@ -152,7 +164,7 @@ function computeFlowAccumulation(
   for (let index = 0; index < totalCells; index += 1) {
     const direction = flowDirectionGrid[index];
 
-    if (direction < 0 || direction > 7) {
+    if (direction < 0 || direction > MAX_FLOW_DIRECTION_INDEX) {
       continue;
     }
 
@@ -187,7 +199,7 @@ function computeFlowAccumulation(
 
     const direction = flowDirectionGrid[currentIndex];
 
-    if (direction < 0 || direction > 7) {
+    if (direction < 0 || direction > MAX_FLOW_DIRECTION_INDEX) {
       continue;
     }
 

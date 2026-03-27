@@ -1,13 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
+  Compass,
   Cuboid,
   Map,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Mountain,
   PencilLine,
+  Ruler,
+  Search,
   Trees,
   Zap,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { MapOverlays } from './MapOverlays';
 import type { Stratum } from '../../core/types/botanical';
 import type { GeneratedProject, ProductiveAreaType } from '../../core/types/generation';
 import type { InfrastructureCategory } from '../../core/types/infrastructure';
@@ -37,13 +41,64 @@ interface LegendGroupData {
   summary: string;
 }
 
+type PanelId = 'header' | 'summary' | 'legend' | 'north' | 'scale' | 'metrics' | 'edit';
+
+const PANEL_ICONS: Record<PanelId, LucideIcon> = {
+  header: Trees,
+  summary: Search,
+  legend: Zap,
+  north: Compass,
+  scale: Ruler,
+  metrics: Mountain,
+  edit: PencilLine,
+};
+
+function CollapseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-figma-border bg-white text-figma-text-muted transition-colors hover:bg-figma-bg hover:text-figma-text"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title="Minimizar"
+    >
+      <svg height="10" viewBox="0 0 10 10" width="10">
+        <line stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" x1="3" x2="7" y1="5" y2="5" />
+      </svg>
+    </button>
+  );
+}
+
 export const ProjectVisualization = () => {
   const generatedProject = useWizardStore((state) => state.generatedProject);
+  const terrain = useWizardStore((state) => state.terrain);
   const viewMode = useWizardStore((state) => state.viewMode);
   const setViewMode = useWizardStore((state) => state.setViewMode);
   const beginEditingProject = useWizardStore((state) => state.beginEditingProject);
-  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+  const [collapsedPanels, setCollapsedPanels] = useState<Set<PanelId>>(new Set());
   const [selectedEntity, setSelectedEntity] = useState<ProjectInspectionEntity | null>(null);
+  const [cameraZoom, setCameraZoom] = useState(12);
+
+  const togglePanel = useCallback((id: PanelId) => {
+    setCollapsedPanels((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const isPanelOpen = useCallback(
+    (id: PanelId) => !collapsedPanels.has(id),
+    [collapsedPanels],
+  );
+
+  // Collect collapsed panel icons for the dock
+  const collapsedIds = useMemo(
+    () => Array.from(collapsedPanels).sort(),
+    [collapsedPanels],
+  );
 
   const summary = useMemo(() => {
     if (!generatedProject) {
@@ -139,169 +194,168 @@ export const ProjectVisualization = () => {
         <Scene
           mode="project"
           onSelectEntity={setSelectedEntity}
+          onZoomChange={setCameraZoom}
           selectedEntityId={selectedEntity?.id ?? null}
         />
       </div>
 
-      <div className="absolute left-6 top-6 z-10 flex items-center gap-3 rounded-[8px] border border-figma-border bg-white/95 p-3 shadow-lg backdrop-blur-sm">
-        <div className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[#e5f4ff] text-figma-blue">
-          <Trees size={18} />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-figma-text-muted">
-            Projeto Gerado
-          </span>
-          <span className="text-[14px] font-semibold text-figma-text">
-            Visualizacao operacional do layout
-          </span>
-        </div>
+      {/* ── Header panel ── */}
+      {isPanelOpen('header') && (
+        <div className="absolute left-6 top-6 z-10 flex items-center gap-3 rounded-[8px] border border-figma-border bg-white/95 p-3 shadow-lg backdrop-blur-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[#e5f4ff] text-figma-blue">
+            <Trees size={18} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-figma-text-muted">
+              Projeto Gerado
+            </span>
+            <span className="text-[14px] font-semibold text-figma-text">
+              Visualizacao operacional do layout
+            </span>
+          </div>
 
-        <div className="mx-2 h-10 w-px bg-figma-border" />
+          <div className="mx-2 h-10 w-px bg-figma-border" />
 
-        <div className="flex rounded-[5px] bg-figma-bg p-0.5">
-          <button
-            className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
-              viewMode === '2D'
-                ? 'bg-white text-figma-text shadow-sm'
-                : 'text-figma-text-muted'
-            }`}
-            onClick={() => setViewMode('2D')}
-          >
-            <Map size={13} />
-            2D
-          </button>
-          <button
-            className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
-              viewMode === '3D'
-                ? 'bg-white text-figma-text shadow-sm'
-                : 'text-figma-text-muted'
-            }`}
-            onClick={() => setViewMode('3D')}
-          >
-            <Cuboid size={13} />
-            3D
-          </button>
+          <div className="flex rounded-[5px] bg-figma-bg p-0.5">
+            <button
+              className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
+                viewMode === '2D'
+                  ? 'bg-white text-figma-text shadow-sm'
+                  : 'text-figma-text-muted'
+              }`}
+              onClick={() => setViewMode('2D')}
+            >
+              <Map size={13} />
+              2D
+            </button>
+            <button
+              className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[11px] font-medium ${
+                viewMode === '3D'
+                  ? 'bg-white text-figma-text shadow-sm'
+                  : 'text-figma-text-muted'
+              }`}
+              onClick={() => setViewMode('3D')}
+            >
+              <Cuboid size={13} />
+              3D
+            </button>
+          </div>
+
+          <div className="mx-1 h-10 w-px bg-figma-border" />
+          <CollapseButton onClick={() => togglePanel('header')} />
         </div>
-      </div>
+      )}
 
-      <div className="absolute right-6 top-6 z-10 flex w-[320px] flex-col overflow-hidden rounded-[8px] border border-figma-border bg-white/95 shadow-lg backdrop-blur-sm">
-        <div className="flex h-11 items-center justify-between border-b border-figma-border px-4">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-figma-text">
-            {selectedEntity ? 'Inspecao de Entidade' : 'Resumo da Geracao'}
-          </span>
-          <span className="rounded-[4px] bg-figma-bg px-2 py-1 text-[10px] font-mono text-figma-text-muted">
-            seed {generatedProject.seed}
-          </span>
-        </div>
+      {/* ── Summary / Inspection panel ── */}
+      {isPanelOpen('summary') && (
+        <div className="absolute right-6 top-6 z-10 flex w-[320px] flex-col overflow-hidden rounded-[8px] border border-figma-border bg-white/95 shadow-lg backdrop-blur-sm">
+          <div className="flex h-11 items-center justify-between border-b border-figma-border px-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+              {selectedEntity ? 'Inspecao de Entidade' : 'Resumo da Geracao'}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-[4px] bg-figma-bg px-2 py-1 text-[10px] font-mono text-figma-text-muted">
+                seed {generatedProject.seed}
+              </span>
+              <CollapseButton onClick={() => togglePanel('summary')} />
+            </div>
+          </div>
 
-        <div className="flex flex-col gap-3 p-4">
-          {selectedEntity ? (
-            <>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[14px] font-semibold text-figma-text">
-                    {selectedEntity.title}
-                  </div>
-                  {selectedEntityToken && SelectedEntityIcon && (
-                    <div
-                      className="mt-2 inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
-                      style={{
-                        backgroundColor: withAlpha(selectedEntityToken.color, '16'),
-                        borderColor: withAlpha(selectedEntityToken.color, '3A'),
-                        color: selectedEntityToken.color,
-                      }}
-                    >
-                      <span
-                        className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-1 font-mono text-[9px] leading-none"
+          <div className="flex flex-col gap-3 p-4">
+            {selectedEntity ? (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[14px] font-semibold text-figma-text">
+                      {selectedEntity.title}
+                    </div>
+                    {selectedEntityToken && SelectedEntityIcon && (
+                      <div
+                        className="mt-2 inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
                         style={{
+                          backgroundColor: withAlpha(selectedEntityToken.color, '16'),
                           borderColor: withAlpha(selectedEntityToken.color, '3A'),
+                          color: selectedEntityToken.color,
                         }}
                       >
-                        <SelectedEntityIcon size={10} strokeWidth={2.4} />
-                      </span>
-                      {selectedEntity.badge}
-                    </div>
-                  )}
+                        <span
+                          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full border bg-white px-1 font-mono text-[9px] leading-none"
+                          style={{
+                            borderColor: withAlpha(selectedEntityToken.color, '3A'),
+                          }}
+                        >
+                          <SelectedEntityIcon size={10} strokeWidth={2.4} />
+                        </span>
+                        {selectedEntity.badge}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    className="rounded-[4px] border border-figma-border px-2 py-1 text-[10px] font-medium text-figma-text-muted transition-colors hover:bg-figma-bg"
+                    onClick={() => setSelectedEntity(null)}
+                  >
+                    Fechar
+                  </button>
                 </div>
 
-                <button
-                  className="rounded-[4px] border border-figma-border px-2 py-1 text-[10px] font-medium text-figma-text-muted transition-colors hover:bg-figma-bg"
-                  onClick={() => setSelectedEntity(null)}
-                >
-                  Fechar
-                </button>
-              </div>
+                <p className="text-[11px] leading-relaxed text-figma-text-muted">
+                  {selectedEntity.description}
+                </p>
 
-              <p className="text-[11px] leading-relaxed text-figma-text-muted">
-                {selectedEntity.description}
-              </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedEntity.details.map((detail) => (
+                    <div
+                      className="rounded-[4px] border border-figma-border bg-figma-bg px-2 py-1.5"
+                      key={`${selectedEntity.id}-${detail.label}`}
+                    >
+                      <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
+                        {detail.label}
+                      </div>
+                      <div className="mt-1 text-[12px] font-mono text-figma-text">
+                        {detail.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-[6px] border border-[#bce4ff] bg-[#e5f4ff] px-3 py-2 text-[11px] leading-relaxed text-[#0065a8]">
+                  Passe o cursor para ler grupo, estrato ou guia. Clique para abrir a
+                  justificativa completa da alocacao.
+                </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {selectedEntity.details.map((detail) => (
-                  <div
-                    className="rounded-[4px] border border-figma-border bg-figma-bg px-2 py-1.5"
-                    key={`${selectedEntity.id}-${detail.label}`}
-                  >
-                    <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
-                      {detail.label}
+                <div className="grid grid-cols-2 gap-2">
+                  {summary.map((item) => (
+                    <div
+                      className="rounded-[4px] border border-figma-border bg-figma-bg px-2 py-1.5"
+                      key={item.label}
+                    >
+                      <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
+                        {item.label}
+                      </div>
+                      <div className="mt-1 text-[12px] font-mono text-figma-text">
+                        {item.value}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[12px] font-mono text-figma-text">
-                      {detail.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="rounded-[6px] border border-[#bce4ff] bg-[#e5f4ff] px-3 py-2 text-[11px] leading-relaxed text-[#0065a8]">
-                Passe o cursor para ler grupo, estrato ou guia. Clique para abrir a
-                justificativa completa da alocacao.
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {summary.map((item) => (
-                  <div
-                    className="rounded-[4px] border border-figma-border bg-figma-bg px-2 py-1.5"
-                    key={item.label}
-                  >
-                    <div className="text-[10px] uppercase tracking-wide text-figma-text-muted">
-                      {item.label}
-                    </div>
-                    <div className="mt-1 text-[12px] font-mono text-figma-text">
-                      {item.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {isLegendCollapsed ? (
-        <button
-          className="absolute left-6 bottom-6 z-10 inline-flex items-center gap-2 rounded-[8px] border border-figma-border bg-white/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text shadow-lg backdrop-blur-sm transition-colors hover:bg-white"
-          onClick={() => setIsLegendCollapsed(false)}
-        >
-          <PanelLeftOpen size={14} className="text-figma-blue" />
-          Mostrar legenda
-        </button>
-      ) : (
+      {/* ── Legend panel ── */}
+      {isPanelOpen('legend') && (
         <div className="absolute left-6 bottom-6 z-10 flex max-h-[calc(100vh-156px)] w-[360px] flex-col gap-3 overflow-hidden rounded-[8px] border border-figma-border bg-white/95 p-4 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
               <Zap size={13} className="text-figma-blue" />
               Legenda Operacional
             </div>
-
-            <button
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[5px] border border-figma-border bg-white text-figma-text-muted transition-colors hover:bg-figma-bg hover:text-figma-text"
-              onClick={() => setIsLegendCollapsed(true)}
-              title="Ocultar legenda"
-            >
-              <PanelLeftClose size={14} />
-            </button>
+            <CollapseButton onClick={() => togglePanel('legend')} />
           </div>
 
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
@@ -364,19 +418,59 @@ export const ProjectVisualization = () => {
         </div>
       )}
 
-      <div className="absolute right-6 bottom-6 z-10 flex items-center gap-3 rounded-[8px] border border-figma-border bg-white/95 p-3 shadow-lg backdrop-blur-sm">
-        <div className="flex items-center gap-2 text-[11px] text-figma-text-muted">
-          <PencilLine size={13} />
-          Editar requisitos e regenerar
-        </div>
+      {/* ── Map overlays (north, scale, metrics) — only when their respective panels are open ── */}
+      {(isPanelOpen('north') || isPanelOpen('scale') || isPanelOpen('metrics')) && (
+        <MapOverlays
+          cameraZoom={cameraZoom}
+          northAngle={terrain.northAngle}
+          report={generatedProject.report}
+          terrainArea={terrain.area}
+          showNorth={isPanelOpen('north')}
+          showScale={isPanelOpen('scale')}
+          showMetrics={isPanelOpen('metrics')}
+          onCollapseNorth={() => togglePanel('north')}
+          onCollapseScale={() => togglePanel('scale')}
+          onCollapseMetrics={() => togglePanel('metrics')}
+        />
+      )}
 
-        <button
-          className="figma-btn figma-btn-primary h-9 px-4 text-[12px]"
-          onClick={beginEditingProject}
-        >
-          Editar Requisitos
-        </button>
-      </div>
+      {/* ── Edit button ── */}
+      {isPanelOpen('edit') && (
+        <div className="absolute right-6 bottom-6 z-10 flex items-center gap-3 rounded-[8px] border border-figma-border bg-white/95 p-3 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-2 text-[11px] text-figma-text-muted">
+            <PencilLine size={13} />
+            Editar requisitos e regenerar
+          </div>
+
+          <button
+            className="figma-btn figma-btn-primary h-9 px-4 text-[12px]"
+            onClick={beginEditingProject}
+          >
+            Editar Requisitos
+          </button>
+
+          <CollapseButton onClick={() => togglePanel('edit')} />
+        </div>
+      )}
+
+      {/* ── Collapsed panels dock — grid of icon buttons ── */}
+      {collapsedIds.length > 0 && (
+        <div className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 gap-1.5 rounded-[8px] border border-figma-border bg-white/95 p-1.5 shadow-lg backdrop-blur-sm">
+          {collapsedIds.map((id) => {
+            const Icon = PANEL_ICONS[id];
+            return (
+              <button
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[5px] border border-figma-border bg-white text-figma-text-muted transition-colors hover:bg-figma-bg hover:text-figma-text"
+                key={id}
+                onClick={() => togglePanel(id)}
+                title={id}
+              >
+                <Icon size={14} />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

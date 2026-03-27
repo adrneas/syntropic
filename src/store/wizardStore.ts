@@ -5,6 +5,7 @@ import type { TerrainPoint } from '../core/types/terrain';
 import type { IWizardState, ToolMode, ViewMode } from '../core/types/wizard';
 import {
   calculatePolygonArea,
+  computeAdaptiveGrid,
   createFlatElevationGrid,
   DEFAULT_TERRAIN_CELL_SIZE,
   DEFAULT_TERRAIN_GRID_HEIGHT,
@@ -133,29 +134,49 @@ export const useWizardStore = create<WizardStore>()(
       setToolMode: (mode) => set({ toolMode: mode }),
       setBrushSize: (size) => set({ brushSize: size }),
 
-      updateTerrainPolygon: (polygon) => set((state) =>
-        resetGeneration({
+      updateTerrainPolygon: (polygon) => set((state) => {
+        const adaptive = computeAdaptiveGrid(polygon);
+        const gridChanged =
+          adaptive.gridWidth !== state.terrain.gridWidth ||
+          adaptive.gridHeight !== state.terrain.gridHeight ||
+          adaptive.cellSize !== state.terrain.cellSize;
+
+        return resetGeneration({
           terrain: {
             ...state.terrain,
             polygon,
             area: calculatePolygonArea(polygon),
+            ...adaptive,
+            elevationGrid: gridChanged
+              ? createFlatElevationGrid(adaptive.gridWidth, adaptive.gridHeight)
+              : state.terrain.elevationGrid,
           },
           history: {
             past: [...state.history.past, state.terrain.polygon],
             future: [],
           },
-        }),
-      ),
+        });
+      }),
 
-      replaceTerrainPolygon: (polygon) => set((state) =>
-        resetGeneration({
+      replaceTerrainPolygon: (polygon) => set((state) => {
+        const adaptive = computeAdaptiveGrid(polygon);
+        const gridChanged =
+          adaptive.gridWidth !== state.terrain.gridWidth ||
+          adaptive.gridHeight !== state.terrain.gridHeight ||
+          adaptive.cellSize !== state.terrain.cellSize;
+
+        return resetGeneration({
           terrain: {
             ...state.terrain,
             polygon,
             area: calculatePolygonArea(polygon),
+            ...adaptive,
+            elevationGrid: gridChanged
+              ? createFlatElevationGrid(adaptive.gridWidth, adaptive.gridHeight)
+              : state.terrain.elevationGrid,
           },
-        }),
-      ),
+        });
+      }),
 
       commitTerrainPolygonHistory: (previousPolygon) => set((state) => ({
         history: {
@@ -170,12 +191,15 @@ export const useWizardStore = create<WizardStore>()(
         }
 
         const previousPolygon = state.history.past[state.history.past.length - 1];
+        const adaptive = computeAdaptiveGrid(previousPolygon);
 
         return resetGeneration({
           terrain: {
             ...state.terrain,
             polygon: previousPolygon,
             area: calculatePolygonArea(previousPolygon),
+            ...adaptive,
+            elevationGrid: createFlatElevationGrid(adaptive.gridWidth, adaptive.gridHeight),
           },
           history: {
             past: state.history.past.slice(0, -1),
@@ -190,12 +214,15 @@ export const useWizardStore = create<WizardStore>()(
         }
 
         const nextPolygon = state.history.future[0];
+        const adaptive = computeAdaptiveGrid(nextPolygon);
 
         return resetGeneration({
           terrain: {
             ...state.terrain,
             polygon: nextPolygon,
             area: calculatePolygonArea(nextPolygon),
+            ...adaptive,
+            elevationGrid: createFlatElevationGrid(adaptive.gridWidth, adaptive.gridHeight),
           },
           history: {
             past: [...state.history.past, state.terrain.polygon],

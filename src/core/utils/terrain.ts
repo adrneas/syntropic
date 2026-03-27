@@ -4,6 +4,64 @@ export const DEFAULT_TERRAIN_GRID_WIDTH = 257;
 export const DEFAULT_TERRAIN_GRID_HEIGHT = 257;
 export const DEFAULT_TERRAIN_CELL_SIZE = 1;
 
+// Minimum and maximum grid side length (cells). Must be power-of-2 + 1 for
+// clean subdivision and marching-squares compatibility.
+const MIN_GRID_SIDE = 65;   // 64m minimum world span at cellSize=1
+const MAX_GRID_SIDE = 513;  // 512m maximum world span at cellSize=1
+// Buffer around polygon bounding box (meters)
+const GRID_PADDING_METERS = 10;
+
+/**
+ * Compute grid dimensions that tightly fit a polygon's bounding box.
+ * Keeps cellSize=1m when possible, increasing it for very large properties.
+ * Grid sides are always power-of-2 + 1 (65, 129, 257, 513).
+ */
+export function computeAdaptiveGrid(polygon: TerrainPoint[]): {
+  gridWidth: number;
+  gridHeight: number;
+  cellSize: number;
+} {
+  if (polygon.length < 3) {
+    return {
+      gridWidth: DEFAULT_TERRAIN_GRID_WIDTH,
+      gridHeight: DEFAULT_TERRAIN_GRID_HEIGHT,
+      cellSize: DEFAULT_TERRAIN_CELL_SIZE,
+    };
+  }
+
+  const bounds = getPolygonBounds(polygon)!;
+  const spanX = bounds.maxX - bounds.minX + GRID_PADDING_METERS * 2;
+  const spanY = bounds.maxY - bounds.minY + GRID_PADDING_METERS * 2;
+  const maxSpan = Math.max(spanX, spanY);
+
+  // Choose cellSize: 1m up to 512m span, 2m up to 1024m, etc.
+  let cellSize = 1;
+  while ((maxSpan / cellSize) > MAX_GRID_SIDE - 1) {
+    cellSize *= 2;
+  }
+
+  // Pick the smallest power-of-2+1 grid that covers each axis
+  const neededW = Math.ceil(spanX / cellSize) + 1;
+  const neededH = Math.ceil(spanY / cellSize) + 1;
+
+  return {
+    gridWidth: nearestGridSide(neededW),
+    gridHeight: nearestGridSide(neededH),
+    cellSize,
+  };
+}
+
+/** Round up to the nearest power-of-2 + 1 within [MIN_GRID_SIDE, MAX_GRID_SIDE]. */
+function nearestGridSide(needed: number): number {
+  const sides = [MIN_GRID_SIDE, 129, 257, MAX_GRID_SIDE];
+  for (const side of sides) {
+    if (side >= needed) {
+      return side;
+    }
+  }
+  return MAX_GRID_SIDE;
+}
+
 export interface PolygonBounds {
   minX: number;
   minY: number;

@@ -3,7 +3,13 @@
     "allow": [
       "Bash(wc -l \"/c/Users/Moises/OneDrive - Eagle Inteligência Digital/Área de Trabalho/syntropic-claude/src/engine\"/*.ts)",
       "Bash(npx vitest:*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(find '/c/Users/Moises/OneDrive - Eagle Inteligência Digital/Área de Trabalho/syntropic-claude/src' -type f -name *.json)",
+      "Bash(xargs wc:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
