@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/c/Users/Moises/OneDrive - Eagle Inteligência Digital/Área de Trabalho/syntropic-claude/src/engine\"/*.ts)",
+      "Bash(npx vitest:*)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

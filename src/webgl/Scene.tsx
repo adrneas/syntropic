@@ -14,6 +14,7 @@ import {
   getGuideVisualToken,
   getInfrastructureCategoryToken,
   getPlantVisualSubtitle,
+  getProductiveAreaVisualToken,
   getProjectVisualToken,
   getStratumVisualToken,
   type ProjectVisualTokenId,
@@ -30,13 +31,15 @@ import {
   sampleElevation,
   worldToGrid,
 } from '../core/utils/terrain';
-import type { TerrainGridConfig, TerrainPoint } from '../core/types/terrain';
+import type { TerrainGridConfig, TerrainPoint, TerrainState } from '../core/types/terrain';
 import type {
   BotanicalPlacement,
   InfrastructurePlacement,
   LayoutGuide,
+  ProductiveArea,
   ResidencePlacement,
   SolarPlacement,
+  WorldPosition,
 } from '../core/types/generation';
 
 type PointerSceneEvent = ThreeEvent<PointerEvent>;
@@ -157,15 +160,19 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
   const interRows = generatedProject?.interRows ?? [];
   const keylines = generatedProject?.keylines ?? [];
   const plants = generatedProject?.plants ?? [];
-  const plantingRows = generatedProject?.plantingRows ?? [];
+  const productiveAreas = generatedProject?.productiveAreas ?? [];
   const serviceCorridors = generatedProject?.serviceCorridors ?? [];
+  const swales = generatedProject?.swales ?? [];
   const hoveredProjectToken = hoveredProjectLabel
     ? getProjectVisualToken(hoveredProjectLabel.visualTokenId)
     : null;
+  const interRowBandWidth = generatedProject
+    ? Math.max(generatedProject.report.layout.rowSpacingMeters * 0.46, 1.6)
+    : 1.8;
   const keylineVisualToken = getGuideVisualToken('KEYLINE');
-  const plantingRowVisualToken = getGuideVisualToken('PLANTING_ROW');
   const interRowVisualToken = getGuideVisualToken('INTERROW');
   const serviceCorridorVisualToken = getGuideVisualToken('SERVICE_CORRIDOR');
+  const swaleVisualToken = getGuideVisualToken('SWALE');
 
   const setProjectHoverLabel = (hoverLabel: ProjectHoverLabel | null) => {
     setHoveredProjectLabel(hoverLabel);
@@ -805,35 +812,44 @@ const TerrainContent = ({ mode = 'editor', onSelectEntity, selectedEntityId }: S
             />
           ))}
 
-          {plantingRows.map((guide) => (
+          {swales.map((guide) => (
             <Line
-              color={plantingRowVisualToken.color}
+              color={swaleVisualToken.color}
               key={guide.id}
-              lineWidth={1.4}
+              lineWidth={2.5}
               onPointerOut={() => clearProjectHoverLabel(guide.id)}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.34));
+                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.46));
               }}
-              opacity={0.85}
-              points={toLinePoints(guide, 0.12)}
+              opacity={0.96}
+              points={toLinePoints(guide, 0.22)}
               transparent
             />
           ))}
 
+          {productiveAreas.map((area) => (
+            <ProductiveAreaMesh
+              area={area}
+              is2D={viewMode === '2D'}
+              isSelected={selectedEntityId === `area-${area.id}`}
+              key={area.id}
+              onHoverChange={setProjectHoverLabel}
+              onHoverClear={clearProjectHoverLabel}
+              onSelect={() => onSelectEntity?.(buildProductiveAreaInspectionEntity(area))}
+            />
+          ))}
+
           {interRows.map((guide) => (
-            <Line
+            <InterRowBandMesh
               color={interRowVisualToken.color}
+              guide={guide}
+              is2D={viewMode === '2D'}
               key={guide.id}
-              lineWidth={1.1}
-              onPointerOut={() => clearProjectHoverLabel(guide.id)}
-              onPointerOver={(event) => {
-                event.stopPropagation();
-                setProjectHoverLabel(buildGuideHoverLabel(guide, 0.3));
-              }}
-              opacity={0.7}
-              points={toLinePoints(guide, 0.1)}
-              transparent
+              onHoverChange={setProjectHoverLabel}
+              onHoverClear={clearProjectHoverLabel}
+              terrain={terrain}
+              width={interRowBandWidth}
             />
           ))}
 
@@ -1197,6 +1213,158 @@ const PlantMesh = ({ plant, isSelected, onHoverChange, onSelect }: PlantMeshProp
   );
 };
 
+interface InterRowBandMeshProps {
+  color: string;
+  guide: LayoutGuide;
+  is2D: boolean;
+  onHoverChange: (hoverLabel: ProjectHoverLabel | null) => void;
+  onHoverClear: (hoverId: string) => void;
+  terrain: TerrainState;
+  width: number;
+}
+
+const InterRowBandMesh = ({
+  color,
+  guide,
+  is2D,
+  onHoverChange,
+  onHoverClear,
+  terrain,
+  width,
+}: InterRowBandMeshProps) => {
+  const geometry = useMemo(
+    () => buildGuideBandGeometry(guide, terrain, width, is2D ? 0.04 : 0.075),
+    [guide, is2D, terrain, width],
+  );
+  const outlinePoints = useMemo(
+    () => buildGuidePolygonOutlinePoints(guide, terrain, width, is2D ? 0.055 : 0.095),
+    [guide, is2D, terrain, width],
+  );
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  return (
+    <group>
+      <mesh
+        onPointerOut={() => onHoverClear(guide.id)}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          onHoverChange(buildGuideHoverLabel(guide, is2D ? 0.52 : 0.36));
+        }}
+        renderOrder={is2D ? 6 : 32}
+      >
+        <primitive object={geometry} attach="geometry" />
+        <meshBasicMaterial
+          color={color}
+          depthTest
+          depthWrite={false}
+          opacity={is2D ? 0.06 : 0.09}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
+
+      {outlinePoints.length > 1 && (
+        <Line
+          color={color}
+          depthTest
+          depthWrite={false}
+          lineWidth={is2D ? 1.15 : 0.95}
+          opacity={is2D ? 0.78 : 0.86}
+          points={outlinePoints}
+          renderOrder={is2D ? 7 : 33}
+          transparent
+        />
+      )}
+    </group>
+  );
+};
+
+interface ProductiveAreaMeshProps {
+  area: ProductiveArea;
+  is2D: boolean;
+  isSelected: boolean;
+  onHoverChange: (hoverLabel: ProjectHoverLabel | null) => void;
+  onHoverClear: (hoverId: string) => void;
+  onSelect: () => void;
+}
+
+const ProductiveAreaMesh = ({
+  area,
+  is2D,
+  isSelected,
+  onHoverChange,
+  onHoverClear,
+  onSelect,
+}: ProductiveAreaMeshProps) => {
+  const token = getProductiveAreaVisualToken(area.type);
+  const geometry = useMemo(
+    () => buildProductiveAreaGeometry(area, is2D ? 0.04 : 0.08),
+    [area, is2D],
+  );
+  const outlineLoops = useMemo(
+    () => buildProductiveAreaOutlineLoops(area, is2D ? 0.055 : 0.095),
+    [area, is2D],
+  );
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  return (
+    <group>
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
+        onPointerOut={() => onHoverClear(area.id)}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          onHoverChange(buildProductiveAreaHoverLabel(area, is2D ? 0.54 : 0.38));
+        }}
+        renderOrder={is2D ? 5 : 28}
+      >
+        <primitive object={geometry} attach="geometry" />
+        <meshBasicMaterial
+          color={isSelected ? '#1f7f5c' : token.color}
+          depthTest
+          depthWrite={false}
+          opacity={is2D ? 0.09 : 0.13}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
+
+      {outlineLoops.map((points, index) => (
+        <Line
+          color={isSelected ? '#1b5e45' : token.color}
+          depthTest
+          depthWrite={false}
+          key={`${area.id}-outline-${index}`}
+          lineWidth={is2D ? 1.25 : 1.05}
+          opacity={is2D ? 0.84 : 0.9}
+          points={points}
+          renderOrder={is2D ? 7 : 33}
+          transparent
+        />
+      ))}
+    </group>
+  );
+};
+
 function createInteractionPlaneGeometry(terrain: TerrainGridConfig): THREE.PlaneGeometry {
   const size = getTerrainWorldSize(terrain);
 
@@ -1441,6 +1609,250 @@ function buildTerrainBoundaryPoints(
   return boundaryPoints;
 }
 
+function buildGuideBandGeometry(
+  guide: LayoutGuide,
+  terrain: Pick<TerrainState, 'cellSize' | 'elevationGrid' | 'gridHeight' | 'gridWidth'>,
+  width: number,
+  yOffset: number,
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const boundaries = buildGuideAreaBoundaries(guide, terrain, width);
+
+  if (!boundaries || boundaries.left.length < 2 || boundaries.right.length < 2) {
+    return geometry;
+  }
+
+  const positions = new Float32Array(boundaries.left.length * 6);
+  const indices: number[] = [];
+
+  for (let index = 0; index < boundaries.left.length; index += 1) {
+    const leftPoint = boundaries.left[index];
+    const rightPoint = boundaries.right[index];
+    const baseIndex = index * 6;
+
+    positions[baseIndex] = leftPoint.x;
+    positions[baseIndex + 1] = leftPoint.z + yOffset;
+    positions[baseIndex + 2] = leftPoint.y;
+    positions[baseIndex + 3] = rightPoint.x;
+    positions[baseIndex + 4] = rightPoint.z + yOffset;
+    positions[baseIndex + 5] = rightPoint.y;
+
+    if (index >= boundaries.left.length - 1) {
+      continue;
+    }
+
+    const vertexIndex = index * 2;
+    indices.push(
+      vertexIndex,
+      vertexIndex + 1,
+      vertexIndex + 2,
+      vertexIndex + 2,
+      vertexIndex + 1,
+      vertexIndex + 3,
+    );
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+function buildGuidePolygonOutlinePoints(
+  guide: LayoutGuide,
+  terrain: Pick<TerrainState, 'cellSize' | 'elevationGrid' | 'gridHeight' | 'gridWidth'>,
+  width: number,
+  yOffset: number,
+): THREE.Vector3[] {
+  const boundaries = buildGuideAreaBoundaries(guide, terrain, width);
+
+  if (!boundaries || boundaries.left.length < 2 || boundaries.right.length < 2) {
+    return [];
+  }
+
+  const outline = [
+    ...boundaries.left.map((point) => new THREE.Vector3(point.x, point.z + yOffset, point.y)),
+    ...[...boundaries.right]
+      .reverse()
+      .map((point) => new THREE.Vector3(point.x, point.z + yOffset, point.y)),
+  ];
+
+  if (outline[0]) {
+    outline.push(outline[0].clone());
+  }
+
+  return outline;
+}
+
+function buildGuideAreaBoundaries(
+  guide: LayoutGuide,
+  terrain: Pick<TerrainState, 'cellSize' | 'elevationGrid' | 'gridHeight' | 'gridWidth'>,
+  width: number,
+): { left: WorldPosition[]; right: WorldPosition[] } | null {
+  const polygon = guide.areaPolygon;
+
+  if (polygon && polygon.length >= 4 && polygon.length % 2 === 0) {
+    const boundaryPointCount = polygon.length / 2;
+
+    return {
+      left: smoothBoundaryPoints(polygon.slice(0, boundaryPointCount), terrain),
+      right: smoothBoundaryPoints([...polygon.slice(boundaryPointCount)].reverse(), terrain),
+    };
+  }
+
+  if (guide.points.length < 2 || width <= Number.EPSILON) {
+    return null;
+  }
+
+  const halfWidth = width / 2;
+  const leftBoundary: WorldPosition[] = [];
+  const rightBoundary: WorldPosition[] = [];
+
+  for (let index = 0; index < guide.points.length; index += 1) {
+    const current = guide.points[index];
+    const previous = guide.points[index - 1] ?? current;
+    const next = guide.points[index + 1] ?? current;
+    let directionX = next.x - previous.x;
+    let directionY = next.y - previous.y;
+    const directionLength = Math.hypot(directionX, directionY);
+
+    if (directionLength <= Number.EPSILON) {
+      directionX = 1;
+      directionY = 0;
+    } else {
+      directionX /= directionLength;
+      directionY /= directionLength;
+    }
+
+    const offsetX = -directionY * halfWidth;
+    const offsetY = directionX * halfWidth;
+    leftBoundary.push({ x: current.x + offsetX, y: current.y + offsetY, z: current.z });
+    rightBoundary.push({ x: current.x - offsetX, y: current.y - offsetY, z: current.z });
+  }
+
+  return {
+    left: smoothBoundaryPoints(leftBoundary, terrain),
+    right: smoothBoundaryPoints(rightBoundary, terrain),
+  };
+}
+
+function buildProductiveAreaGeometry(
+  area: ProductiveArea,
+  yOffset: number,
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+
+  if (area.polygon.length < 3) {
+    return geometry;
+  }
+
+  const outerLoop = normalizeAreaLoop(area.polygon, true);
+  const holeLoops = (area.holes ?? []).map((loop) => normalizeAreaLoop(loop, false));
+  const contour2D = outerLoop.map((point) => new THREE.Vector2(point.x, point.y));
+  const holes2D = holeLoops.map((loop) => loop.map((point) => new THREE.Vector2(point.x, point.y)));
+  const triangles = THREE.ShapeUtils.triangulateShape(contour2D, holes2D);
+  const vertices = [outerLoop, ...holeLoops].flat();
+  const positions = new Float32Array(vertices.length * 3);
+  const indices: number[] = [];
+
+  for (let index = 0; index < vertices.length; index += 1) {
+    const point = vertices[index];
+    const positionIndex = index * 3;
+
+    positions[positionIndex] = point.x;
+    positions[positionIndex + 1] = point.z + yOffset;
+    positions[positionIndex + 2] = point.y;
+  }
+
+  for (let index = 0; index < triangles.length; index += 1) {
+    const triangle = triangles[index];
+    indices.push(triangle[0], triangle[1], triangle[2]);
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+function buildProductiveAreaOutlineLoops(
+  area: ProductiveArea,
+  yOffset: number,
+): THREE.Vector3[][] {
+  const loops = [area.polygon, ...(area.holes ?? [])];
+
+  return loops
+    .filter((loop) => loop.length >= 3)
+    .map((loop) => {
+      const points = loop.map((point) => new THREE.Vector3(point.x, point.z + yOffset, point.y));
+
+      points.push(points[0].clone());
+
+      return points;
+    });
+}
+
+function normalizeAreaLoop(loop: WorldPosition[], shouldBeClockwise: boolean): WorldPosition[] {
+  const points2D = loop.map((point) => new THREE.Vector2(point.x, point.y));
+  const isClockwise = THREE.ShapeUtils.isClockWise(points2D);
+
+  if (isClockwise === shouldBeClockwise) {
+    return loop;
+  }
+
+  return [...loop].reverse();
+}
+
+function smoothBoundaryPoints(
+  points: WorldPosition[],
+  terrain: Pick<TerrainState, 'cellSize' | 'elevationGrid' | 'gridHeight' | 'gridWidth'>,
+): WorldPosition[] {
+  if (points.length < 3) {
+    return points.map((point) => projectPointToTerrain(point, terrain));
+  }
+
+  let smoothed = [...points];
+
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const nextPoints: WorldPosition[] = [smoothed[0]];
+
+    for (let index = 0; index < smoothed.length - 1; index += 1) {
+      const current = smoothed[index];
+      const next = smoothed[index + 1];
+      nextPoints.push(
+        {
+          x: roundTo(current.x * 0.75 + next.x * 0.25, 3),
+          y: roundTo(current.y * 0.75 + next.y * 0.25, 3),
+          z: 0,
+        },
+        {
+          x: roundTo(current.x * 0.25 + next.x * 0.75, 3),
+          y: roundTo(current.y * 0.25 + next.y * 0.75, 3),
+          z: 0,
+        },
+      );
+    }
+
+    nextPoints.push(smoothed[smoothed.length - 1]);
+    smoothed = nextPoints;
+  }
+
+  return smoothed.map((point) => projectPointToTerrain(point, terrain));
+}
+
+function projectPointToTerrain(
+  point: Pick<WorldPosition, 'x' | 'y'>,
+  terrain: Pick<TerrainState, 'cellSize' | 'elevationGrid' | 'gridHeight' | 'gridWidth'>,
+): WorldPosition {
+  return {
+    x: point.x,
+    y: point.y,
+    z: getElevationAtWorld(point.x, point.y, terrain, terrain.elevationGrid),
+  };
+}
+
 function toLinePoints(guide: LayoutGuide, yOffset: number): THREE.Vector3[] {
   return guide.points.map((point) => new THREE.Vector3(point.x, point.z + yOffset, point.y));
 }
@@ -1453,6 +1865,21 @@ function buildGuideHoverLabel(guide: LayoutGuide, yOffset: number): ProjectHover
     id: guide.id,
     position,
     subtitle: `${Math.round(guide.length)}m de extensao`,
+    title: token.label,
+    visualTokenId: token.id,
+  };
+}
+
+function buildProductiveAreaHoverLabel(
+  area: ProductiveArea,
+  yOffset: number,
+): ProjectHoverLabel {
+  const token = getProductiveAreaVisualToken(area.type);
+
+  return {
+    id: area.id,
+    position: [area.centroid.x, area.centroid.z + yOffset, area.centroid.y],
+    subtitle: `${Math.round(area.areaSquareMeters)}m2 de cobertura`,
     title: token.label,
     visualTokenId: token.id,
   };
@@ -1589,8 +2016,35 @@ function buildInfrastructureInspectionEntity(
   };
 }
 
+function buildProductiveAreaInspectionEntity(area: ProductiveArea): ProjectInspectionEntity {
+  const token = getProductiveAreaVisualToken(area.type);
+
+  return {
+    id: `area-${area.id}`,
+    badge: token.label,
+    description:
+      area.type === 'TOPO_CREST'
+        ? 'Area poligonal aplicada nas cotas mais altas e estaveis, suavizada sobre a topografia para fechar os topos de elevacao com malha produtiva.'
+        : area.type === 'FLAT_PRODUCTIVE'
+          ? 'Area plana e util posicionada ao redor das construcoes para absorver os vazios produtivos sem deixar sobras operacionais.'
+          : area.type === 'SLOPE_PRODUCTIVE'
+            ? 'Area cultivavel em encosta, distribuida como malha sobre o declive para acompanhar a topografia sem deixar a vertente vazia.'
+          : 'Area residual usada para conectar a malha produtiva e eliminar pedacos mortos entre restricoes, corredores e volumes construidos.',
+    details: [
+      { label: 'Tipo', value: token.label },
+      { label: 'Area util', value: `${area.areaSquareMeters.toFixed(1)} m2` },
+      { label: 'Cota media', value: `${area.averageElevation.toFixed(1)}m` },
+      { label: 'Declive medio', value: `${area.averageSlopePercent.toFixed(1)}%` },
+      { label: 'Centro', value: `x ${area.centroid.x.toFixed(1)} / y ${area.centroid.y.toFixed(1)}` },
+    ],
+    title: token.label,
+    visualTokenId: token.id,
+  };
+}
+
 function buildPlantInspectionEntity(plant: BotanicalPlacement): ProjectInspectionEntity {
   const token = getStratumVisualToken(plant.stratum);
+  const productiveAreaLabel = getProductiveAreaLabel(plant.productiveAreaType);
 
   return {
     id: plant.id,
@@ -1598,7 +2052,8 @@ function buildPlantInspectionEntity(plant: BotanicalPlacement): ProjectInspectio
     description: buildPlantDescription(plant),
     details: [
       { label: 'Nome cientifico', value: plant.scientificName },
-      { label: 'Manejo', value: plant.managementZone === 'INTERROW' ? 'Entrelinha produtiva' : 'Linha principal' },
+      { label: 'Area base', value: productiveAreaLabel },
+      { label: 'Manejo', value: plant.managementZone === 'INTERROW' ? 'Entrelinha produtiva' : 'Malha principal' },
       { label: 'Perfil', value: plant.managementProfile },
       { label: 'Faixa operacional', value: plant.operationalBand },
       { label: 'Ciclo', value: `${plant.maintenanceCycleDays} dias` },
@@ -1682,6 +2137,20 @@ function getStratumColor(
 }
 
 function buildPlantDescription(plant: BotanicalPlacement): string {
+  if (plant.productiveAreaType === 'FLAT_PRODUCTIVE') {
+    return plant.managementProfile === 'MOWED_ACCESS'
+      ? 'Especie alocada em area plana proxima a infraestrutura, mantida baixa para preservar acesso, visibilidade e operacao.'
+      : 'Especie alocada em area plana produtiva ao redor das construcoes, priorizando fechamento de solo e uso intensivo sem sobra espacial.';
+  }
+
+  if (plant.productiveAreaType === 'TOPO_CREST') {
+    return 'Especie posicionada sobre uma malha de topo, acompanhando as cotas mais altas do relevo com ocupacao estratificada e suave.';
+  }
+
+  if (plant.productiveAreaType === 'SLOPE_PRODUCTIVE') {
+    return 'Especie alocada em encosta cultivavel, organizada em faixas a partir dos swales para acompanhar o declive, infiltrar agua e evitar vazios na vertente.';
+  }
+
   if (plant.managementZone === 'INTERROW') {
     if (plant.managementProfile === 'MOWED_ACCESS') {
       return 'Especie de cobertura mantida baixa em faixa de servico, priorizando acesso, visibilidade e manutencao frequente perto da casa ou dos modulos operacionais.';
@@ -1712,5 +2181,23 @@ function buildPlantDescription(plant: BotanicalPlacement): string {
     default:
       return 'Espécie alocada deterministicamente sobre a linha de plantio.';
   }
+}
+
+function getProductiveAreaLabel(type: BotanicalPlacement['productiveAreaType']): string {
+  switch (type) {
+    case 'TOPO_CREST':
+      return 'Topo de elevacao';
+    case 'FLAT_PRODUCTIVE':
+      return 'Area plana produtiva';
+    case 'SLOPE_PRODUCTIVE':
+      return 'Encosta produtiva';
+    case 'GENERAL_FILL':
+    default:
+      return 'Preenchimento residual';
+  }
+}
+
+function roundTo(value: number, precision = 2): number {
+  return Math.round(value * 10 ** precision) / 10 ** precision;
 }
 

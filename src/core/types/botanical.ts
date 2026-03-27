@@ -11,7 +11,8 @@ export interface ISpecies {
   climateCompatibility: ClimateZone[]; // Climas onde a planta sobrevive
   waterRequirement: 'LOW' | 'MEDIUM' | 'HIGH';
   spacingArea: number;    // Área de projeção da copa/raiz em m² (determina a malha de colisão)
-  
+  nitrogenFixer: boolean; // Espécie fixadora de nitrogênio (leguminosas, etc.)
+
   // Matriz Lógica de Consórcio
   companions: string[];   // Array de IDs de espécies benéficas (simbiose)
   antagonists: string[];  // Array de IDs de espécies incompatíveis (alelopatia)

@@ -97,7 +97,10 @@ export const Step5Summary = () => {
                 <Metric label="Infra solicitadas" value={`${report.infrastructure.requested}`} />
                 <Metric label="Infra alocadas" value={`${report.infrastructure.placed}`} />
                 <Metric label="Corredores" value={`${report.layout.serviceCorridorCount}`} />
-                <Metric label="Entrelinhas" value={`${report.layout.interRowCount}`} />
+                <Metric label="Swales" value={`${report.layout.swaleCount}`} />
+                <Metric label="Areas produtivas" value={`${report.layout.productiveAreaCount}`} />
+                <Metric label="Cobertura" value={`${report.layout.productiveAreaCoverageSquareMeters}m2`} />
+                <Metric label="Residual livre" value={`${report.layout.productiveAreaDeadSpaceSquareMeters}m2`} />
                 <Metric label="Manejo base" value={`${report.botanical.dominantInterRowProfile}`} />
                 <Metric label="Ciclo medio" value={`${report.botanical.averageInterRowMaintenanceCycleDays} dias`} />
                 <Metric label="Banco botanico" value={`${report.botanical.compatibleSpeciesCount} especies`} />

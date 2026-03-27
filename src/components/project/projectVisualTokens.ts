@@ -17,10 +17,14 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Stratum } from '../../core/types/botanical';
-import type { LayoutGuideType, PlantManagementZone } from '../../core/types/generation';
+import type {
+  LayoutGuideType,
+  PlantManagementZone,
+  ProductiveAreaType,
+} from '../../core/types/generation';
 import type { InfrastructureCategory } from '../../core/types/infrastructure';
 
-export type ProjectVisualGroup = 'BASE' | 'GUIDES' | 'STRATA' | 'INFRA';
+export type ProjectVisualGroup = 'BASE' | 'GUIDES' | 'AREAS' | 'STRATA' | 'INFRA';
 
 export type ProjectVisualTokenId =
   | 'residence'
@@ -30,6 +34,11 @@ export type ProjectVisualTokenId =
   | 'guide-planting-row'
   | 'guide-interrow'
   | 'guide-service-corridor'
+  | 'guide-swale'
+  | 'area-topo-crest'
+  | 'area-flat-productive'
+  | 'area-slope-productive'
+  | 'area-general-fill'
   | 'stratum-emergente'
   | 'stratum-alto'
   | 'stratum-medio'
@@ -50,6 +59,7 @@ export interface ProjectVisualToken {
 }
 
 export const PROJECT_VISUAL_GROUP_LABELS: Record<ProjectVisualGroup, string> = {
+  AREAS: 'Areas Produtivas',
   BASE: 'Estruturas Base',
   GUIDES: 'Guias Operacionais',
   INFRA: 'Infraestrutura',
@@ -112,6 +122,46 @@ const PROJECT_VISUAL_TOKENS: Record<ProjectVisualTokenId, ProjectVisualToken> = 
     icon: Route,
     id: 'guide-service-corridor',
     label: 'Corredor operacional',
+  },
+  'guide-swale': {
+    color: '#1d8bb8',
+    group: 'GUIDES',
+    hint: 'Valeta em curva de nivel para infiltrar agua e organizar o plantio em encosta.',
+    icon: Droplets,
+    id: 'guide-swale',
+    label: 'Swale',
+  },
+  'area-topo-crest': {
+    color: '#2f855a',
+    group: 'AREAS',
+    hint: 'Malha produtiva aplicada nas cotas mais altas e estaveis do relevo.',
+    icon: Trees,
+    id: 'area-topo-crest',
+    label: 'Topo de elevacao',
+  },
+  'area-flat-productive': {
+    color: '#84b547',
+    group: 'AREAS',
+    hint: 'Preenchimento plano e produtivo ao redor das construcoes.',
+    icon: Shrub,
+    id: 'area-flat-productive',
+    label: 'Area plana produtiva',
+  },
+  'area-slope-productive': {
+    color: '#5f9b4d',
+    group: 'AREAS',
+    hint: 'Faixas e bolsos cultivaveis em encostas acompanhando o relevo.',
+    icon: Waves,
+    id: 'area-slope-productive',
+    label: 'Encosta produtiva',
+  },
+  'area-general-fill': {
+    color: '#6ba36f',
+    group: 'AREAS',
+    hint: 'Fechamento residual da malha para eliminar espacos mortos.',
+    icon: Waves,
+    id: 'area-general-fill',
+    label: 'Preenchimento residual',
   },
   'stratum-emergente': {
     color: '#1f6d4d',
@@ -201,6 +251,8 @@ export function getGuideVisualToken(type: LayoutGuideType): ProjectVisualToken {
       return PROJECT_VISUAL_TOKENS['guide-interrow'];
     case 'SERVICE_CORRIDOR':
       return PROJECT_VISUAL_TOKENS['guide-service-corridor'];
+    case 'SWALE':
+      return PROJECT_VISUAL_TOKENS['guide-swale'];
     default:
       return PROJECT_VISUAL_TOKENS['guide-planting-row'];
   }
@@ -237,6 +289,20 @@ export function getStratumVisualToken(stratum: Stratum): ProjectVisualToken {
       return PROJECT_VISUAL_TOKENS['stratum-rasteiro'];
     default:
       return PROJECT_VISUAL_TOKENS['stratum-medio'];
+  }
+}
+
+export function getProductiveAreaVisualToken(type: ProductiveAreaType): ProjectVisualToken {
+  switch (type) {
+    case 'TOPO_CREST':
+      return PROJECT_VISUAL_TOKENS['area-topo-crest'];
+    case 'FLAT_PRODUCTIVE':
+      return PROJECT_VISUAL_TOKENS['area-flat-productive'];
+    case 'SLOPE_PRODUCTIVE':
+      return PROJECT_VISUAL_TOKENS['area-slope-productive'];
+    case 'GENERAL_FILL':
+    default:
+      return PROJECT_VISUAL_TOKENS['area-general-fill'];
   }
 }
 

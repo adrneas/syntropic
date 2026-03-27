@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react';
-import { Cuboid, Map, PencilLine, Trees, Zap } from 'lucide-react';
+import {
+  Cuboid,
+  Map,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PencilLine,
+  Trees,
+  Zap,
+} from 'lucide-react';
 import type { Stratum } from '../../core/types/botanical';
-import type { GeneratedProject } from '../../core/types/generation';
+import type { GeneratedProject, ProductiveAreaType } from '../../core/types/generation';
 import type { InfrastructureCategory } from '../../core/types/infrastructure';
 import { useWizardStore } from '../../store/wizardStore';
 import { Scene, type ProjectInspectionEntity } from '../../webgl/Scene';
 import {
   getInfrastructureCategoryToken,
+  getProductiveAreaVisualToken,
   getProjectVisualToken,
   getStratumVisualToken,
   PROJECT_VISUAL_GROUP_LABELS,
@@ -33,6 +42,7 @@ export const ProjectVisualization = () => {
   const viewMode = useWizardStore((state) => state.viewMode);
   const setViewMode = useWizardStore((state) => state.setViewMode);
   const beginEditingProject = useWizardStore((state) => state.beginEditingProject);
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<ProjectInspectionEntity | null>(null);
 
   const summary = useMemo(() => {
@@ -60,19 +70,16 @@ export const ProjectVisualization = () => {
         value: `${generatedProject.report.infrastructure.placed}/${generatedProject.report.infrastructure.requested}`,
       },
       {
-        label: 'Guias',
-        value: `${generatedProject.report.layout.plantingRowCount} rows / ${generatedProject.report.layout.interRowCount} entrelinhas / ${generatedProject.report.layout.keylineCount} keylines`,
+        label: 'Areas produtivas',
+        value: `${generatedProject.report.layout.productiveAreaCount} areas / ${generatedProject.report.layout.swaleCount} swales`,
       },
       {
         label: 'Plantas',
-        value: `${generatedProject.report.botanical.placedCount} total / ${generatedProject.report.botanical.interRowPlantCount} entrelinhas`,
+        value: `${generatedProject.report.botanical.placedCount} total`,
       },
       {
-        label: 'Manejo',
-        value:
-          generatedProject.report.botanical.dominantInterRowProfile === 'NONE'
-            ? 'sem entrelinha manejada'
-            : `${generatedProject.report.botanical.dominantInterRowProfile} / ${generatedProject.report.botanical.averageInterRowMaintenanceCycleDays}d`,
+        label: 'Areas ativas',
+        value: `${generatedProject.report.botanical.productiveAreasPopulated} areas com plantio`,
       },
       {
         label: 'Banco botanico',
@@ -90,8 +97,16 @@ export const ProjectVisualization = () => {
             : 'sim',
       },
       {
-        label: 'Espacamento',
+        label: 'Passo da malha',
         value: `${generatedProject.report.layout.rowSpacingMeters}m`,
+      },
+      {
+        label: 'Cobertura',
+        value: `${generatedProject.report.layout.productiveAreaCoverageSquareMeters.toFixed(0)} m2`,
+      },
+      {
+        label: 'Residual livre',
+        value: `${generatedProject.report.layout.productiveAreaDeadSpaceSquareMeters.toFixed(0)} m2`,
       },
       {
         label: 'Estratos',
@@ -264,70 +279,90 @@ export const ProjectVisualization = () => {
         </div>
       </div>
 
-      <div className="absolute left-6 bottom-6 z-10 flex max-h-[calc(100vh-156px)] w-[360px] flex-col gap-3 overflow-hidden rounded-[8px] border border-figma-border bg-white/95 p-4 shadow-lg backdrop-blur-sm">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
-          <Zap size={13} className="text-figma-blue" />
-          Legenda Operacional
-        </div>
+      {isLegendCollapsed ? (
+        <button
+          className="absolute left-6 bottom-6 z-10 inline-flex items-center gap-2 rounded-[8px] border border-figma-border bg-white/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text shadow-lg backdrop-blur-sm transition-colors hover:bg-white"
+          onClick={() => setIsLegendCollapsed(false)}
+        >
+          <PanelLeftOpen size={14} className="text-figma-blue" />
+          Mostrar legenda
+        </button>
+      ) : (
+        <div className="absolute left-6 bottom-6 z-10 flex max-h-[calc(100vh-156px)] w-[360px] flex-col gap-3 overflow-hidden rounded-[8px] border border-figma-border bg-white/95 p-4 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-figma-text">
+              <Zap size={13} className="text-figma-blue" />
+              Legenda Operacional
+            </div>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
-          {legendGroups.map((group) => (
-            <section
-              className="rounded-[6px] border border-figma-border bg-figma-bg/70 p-3"
-              key={group.id}
+            <button
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[5px] border border-figma-border bg-white text-figma-text-muted transition-colors hover:bg-figma-bg hover:text-figma-text"
+              onClick={() => setIsLegendCollapsed(true)}
+              title="Ocultar legenda"
             >
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-figma-text-muted">
-                  {PROJECT_VISUAL_GROUP_LABELS[group.id]}
-                </span>
-                <span className="rounded-[4px] bg-white px-1.5 py-0.5 text-[10px] font-mono text-figma-text-muted">
-                  {group.summary}
-                </span>
-              </div>
+              <PanelLeftClose size={14} />
+            </button>
+          </div>
 
-              <div className="space-y-2">
-                {group.items.length === 0 ? (
-                  <div className="rounded-[4px] border border-dashed border-figma-border bg-white px-2 py-2 text-[10px] leading-relaxed text-figma-text-muted">
-                    {group.emptyState}
-                  </div>
-                ) : (
-                  group.items.map((item) => (
-                    <div
-                      className="flex items-center justify-between gap-3 rounded-[4px] border border-figma-border bg-white px-2 py-2"
-                      key={`${group.id}-${item.token.id}`}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="inline-flex h-7 min-w-7 items-center justify-center rounded-[4px] border bg-white px-1 font-mono text-[10px] font-semibold"
-                          style={{
-                            backgroundColor: withAlpha(item.token.color, '14'),
-                            borderColor: withAlpha(item.token.color, '36'),
-                            color: item.token.color,
-                          }}
-                        >
-                          <item.token.icon size={14} strokeWidth={2.1} />
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate text-[11px] font-medium text-figma-text">
-                            {item.token.label}
-                          </div>
-                          <div className="text-[10px] leading-relaxed text-figma-text-muted">
-                            {item.description}
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
+            {legendGroups.map((group) => (
+              <section
+                className="rounded-[6px] border border-figma-border bg-figma-bg/70 p-3"
+                key={group.id}
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-figma-text-muted">
+                    {PROJECT_VISUAL_GROUP_LABELS[group.id]}
+                  </span>
+                  <span className="rounded-[4px] bg-white px-1.5 py-0.5 text-[10px] font-mono text-figma-text-muted">
+                    {group.summary}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {group.items.length === 0 ? (
+                    <div className="rounded-[4px] border border-dashed border-figma-border bg-white px-2 py-2 text-[10px] leading-relaxed text-figma-text-muted">
+                      {group.emptyState}
+                    </div>
+                  ) : (
+                    group.items.map((item) => (
+                      <div
+                        className="flex items-center justify-between gap-3 rounded-[4px] border border-figma-border bg-white px-2 py-2"
+                        key={`${group.id}-${item.token.id}`}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="inline-flex h-7 min-w-7 items-center justify-center rounded-[4px] border bg-white px-1 font-mono text-[10px] font-semibold"
+                            style={{
+                              backgroundColor: withAlpha(item.token.color, '14'),
+                              borderColor: withAlpha(item.token.color, '36'),
+                              color: item.token.color,
+                            }}
+                          >
+                            <item.token.icon size={14} strokeWidth={2.1} />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate text-[11px] font-medium text-figma-text">
+                              {item.token.label}
+                            </div>
+                            <div className="text-[10px] leading-relaxed text-figma-text-muted">
+                              {item.description}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <span className="rounded-[4px] bg-figma-bg px-1.5 py-0.5 text-[10px] font-mono text-figma-text">
-                        {item.value}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-          ))}
+                        <span className="rounded-[4px] bg-figma-bg px-1.5 py-0.5 text-[10px] font-mono text-figma-text">
+                          {item.value}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="absolute right-6 bottom-6 z-10 flex items-center gap-3 rounded-[8px] border border-figma-border bg-white/95 p-3 shadow-lg backdrop-blur-sm">
         <div className="flex items-center gap-2 text-[11px] text-figma-text-muted">
@@ -347,6 +382,12 @@ export const ProjectVisualization = () => {
 };
 
 function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
+  const productiveAreaCounts: Record<ProductiveAreaType, number> = {
+    FLAT_PRODUCTIVE: 0,
+    GENERAL_FILL: 0,
+    SLOPE_PRODUCTIVE: 0,
+    TOPO_CREST: 0,
+  };
   const infrastructureCounts: Record<InfrastructureCategory, number> = {
     AGUA: 0,
     ANIMAL: 0,
@@ -365,6 +406,10 @@ function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
     if (placement.status === 'placed' && placement.category) {
       infrastructureCounts[placement.category] += 1;
     }
+  });
+
+  project.productiveAreas.forEach((area) => {
+    productiveAreaCounts[area.type] += 1;
   });
 
   project.plants.forEach((plant) => {
@@ -402,14 +447,9 @@ function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
       value: String(project.keylines.length),
     },
     {
-      description: `Linhas produtivas com espacamento base de ${project.report.layout.rowSpacingMeters}m.`,
-      token: getProjectVisualToken('guide-planting-row'),
-      value: String(project.plantingRows.length),
-    },
-    {
-      description: 'Faixas de cobertura e manejo entre linhas.',
-      token: getProjectVisualToken('guide-interrow'),
-      value: String(project.interRows.length),
+      description: 'Valas em curva de nivel organizando a infiltracao e a ordem de plantio em encostas.',
+      token: getProjectVisualToken('guide-swale'),
+      value: String(project.swales.length),
     },
     {
       description: 'Rotas de acesso e manutencao do sistema.',
@@ -417,6 +457,23 @@ function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
       value: String(project.serviceCorridors.length),
     },
   ];
+
+  const productiveAreaItems = (
+    ['TOPO_CREST', 'FLAT_PRODUCTIVE', 'SLOPE_PRODUCTIVE', 'GENERAL_FILL'] as const
+  )
+    .filter((type) => productiveAreaCounts[type] > 0)
+    .map((type) => ({
+      description:
+        type === 'TOPO_CREST'
+          ? 'Malhas nos pontos mais altos e estaveis do relevo.'
+          : type === 'FLAT_PRODUCTIVE'
+            ? 'Preenchimento plano e util ao redor das construcoes.'
+            : type === 'SLOPE_PRODUCTIVE'
+              ? 'Cultivo distribuido em encostas acompanhando a topografia.'
+            : 'Fechamento residual da malha para eliminar sobras.',
+      token: getProductiveAreaVisualToken(type),
+      value: String(productiveAreaCounts[type]),
+    }));
 
   const stratumItems = (
     ['EMERGENTE', 'ALTO', 'MEDIO', 'BAIXO', 'RASTEIRO'] as const
@@ -449,7 +506,13 @@ function buildLegendGroups(project: GeneratedProject): LegendGroupData[] {
       emptyState: 'Nenhuma geometria operacional disponivel.',
       id: 'GUIDES',
       items: guideItems,
-      summary: `${project.keylines.length + project.plantingRows.length + project.interRows.length + project.serviceCorridors.length} guias`,
+      summary: `${project.keylines.length + project.serviceCorridors.length + project.swales.length} guias`,
+    },
+    {
+      emptyState: 'Nenhuma area produtiva foi gerada nesta iteracao.',
+      id: 'AREAS',
+      items: productiveAreaItems,
+      summary: `${project.productiveAreas.length} areas`,
     },
     {
       emptyState: 'Nenhum estrato botanico ativo nesta iteracao.',

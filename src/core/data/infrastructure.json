@@ -23,6 +23,7 @@
     "category": "AGUA",
     "footprintWidth": 15,
     "footprintLength": 10,
+    "preferredNearInfrastructure": ["biodigestor"],
     "placementRules": {
       "requiresKeyline": true,
       "maxSlopePercentage": 5,
@@ -77,6 +78,7 @@
     "category": "PROCESSAMENTO",
     "footprintWidth": 5,
     "footprintLength": 10,
+    "preferredNearInfrastructure": ["compostagem", "cisterna-ferrocimento"],
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 10,
@@ -95,6 +97,7 @@
     "category": "PROCESSAMENTO",
     "footprintWidth": 6,
     "footprintLength": 6,
+    "preferredNearInfrastructure": ["aviario-movel", "viveiro-mudas"],
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 15,
@@ -113,6 +116,7 @@
     "category": "ENERGIA",
     "footprintWidth": 4,
     "footprintLength": 4,
+    "preferredNearInfrastructure": ["aviario-movel", "lago-aquicultura"],
     "placementRules": {
       "requiresKeyline": false,
       "maxSlopePercentage": 5,

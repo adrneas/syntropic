@@ -17,6 +17,7 @@ const NEIGHBOR_OFFSETS = [
 
 export interface TopographyAnalysis {
   flatCellGrid: Uint8Array;
+  flowAccumulationGrid: Uint16Array;
   flowDirectionGrid: Int8Array;
   restrictionGrid: Uint8Array;
   sinkCoordinates: GridCoordinate[];
@@ -105,8 +106,15 @@ export function analyzeTopography(terrain: TerrainState): TopographyAnalysis {
     }
   }
 
+  const flowAccumulationGrid = computeFlowAccumulation(
+    flowDirectionGrid,
+    terrain.gridWidth,
+    terrain.gridHeight,
+  );
+
   return {
     flatCellGrid,
+    flowAccumulationGrid,
     flowDirectionGrid,
     restrictionGrid,
     sinkCoordinates,
@@ -121,6 +129,88 @@ export function analyzeTopography(terrain: TerrainState): TopographyAnalysis {
       sinkCount: sinkCoordinates.length,
     },
   };
+}
+
+/**
+ * Compute flow accumulation from D8 flow direction grid.
+ * Each cell counts how many upstream cells drain into it.
+ * High accumulation values indicate drainage lines (talvegues).
+ *
+ * Algorithm: topological sort by computing in-degree, then BFS from
+ * cells with zero in-degree (ridgelines), propagating flow downstream.
+ */
+function computeFlowAccumulation(
+  flowDirectionGrid: Int8Array,
+  gridWidth: number,
+  gridHeight: number,
+): Uint16Array {
+  const totalCells = gridWidth * gridHeight;
+  const accumulation = new Uint16Array(totalCells); // each cell starts with 1 (itself)
+  const inDegree = new Uint16Array(totalCells);
+
+  // Compute in-degree: count how many cells flow into each cell
+  for (let index = 0; index < totalCells; index += 1) {
+    const direction = flowDirectionGrid[index];
+
+    if (direction < 0 || direction > 7) {
+      continue;
+    }
+
+    const cellX = index % gridWidth;
+    const cellY = Math.floor(index / gridWidth);
+    const offset = NEIGHBOR_OFFSETS[direction];
+    const targetX = cellX + offset.x;
+    const targetY = cellY + offset.y;
+
+    if (targetX >= 0 && targetX < gridWidth && targetY >= 0 && targetY < gridHeight) {
+      inDegree[targetY * gridWidth + targetX] += 1;
+    }
+  }
+
+  // Initialize: each cell contributes 1 (itself)
+  accumulation.fill(1);
+
+  // BFS from cells with zero in-degree (ridgelines/peaks)
+  const queue: number[] = [];
+
+  for (let index = 0; index < totalCells; index += 1) {
+    if (inDegree[index] === 0) {
+      queue.push(index);
+    }
+  }
+
+  let head = 0;
+
+  while (head < queue.length) {
+    const currentIndex = queue[head];
+    head += 1;
+
+    const direction = flowDirectionGrid[currentIndex];
+
+    if (direction < 0 || direction > 7) {
+      continue;
+    }
+
+    const cellX = currentIndex % gridWidth;
+    const cellY = Math.floor(currentIndex / gridWidth);
+    const offset = NEIGHBOR_OFFSETS[direction];
+    const targetX = cellX + offset.x;
+    const targetY = cellY + offset.y;
+
+    if (targetX < 0 || targetX >= gridWidth || targetY < 0 || targetY >= gridHeight) {
+      continue;
+    }
+
+    const targetIndex = targetY * gridWidth + targetX;
+    accumulation[targetIndex] += accumulation[currentIndex];
+    inDegree[targetIndex] -= 1;
+
+    if (inDegree[targetIndex] === 0) {
+      queue.push(targetIndex);
+    }
+  }
+
+  return accumulation;
 }
 
 function roundTo(value: number, precision = 2): number {

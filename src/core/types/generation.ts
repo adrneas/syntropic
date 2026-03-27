@@ -3,7 +3,17 @@ import type { InfrastructureCategory } from './infrastructure';
 
 export type PlacementStatus = 'placed' | 'skipped';
 export type SolarMounting = 'ground';
-export type LayoutGuideType = 'KEYLINE' | 'PLANTING_ROW' | 'INTERROW' | 'SERVICE_CORRIDOR';
+export type LayoutGuideType =
+  | 'KEYLINE'
+  | 'PLANTING_ROW'
+  | 'INTERROW'
+  | 'SERVICE_CORRIDOR'
+  | 'SWALE';
+export type ProductiveAreaType =
+  | 'TOPO_CREST'
+  | 'FLAT_PRODUCTIVE'
+  | 'SLOPE_PRODUCTIVE'
+  | 'GENERAL_FILL';
 export type PlantManagementZone = 'ROW' | 'INTERROW';
 export type PlantManagementProfile =
   | 'SUCCESSION_ROW'
@@ -40,10 +50,22 @@ export interface RectPlacement {
 
 export interface LayoutGuide {
   averageElevation: number;
+  areaPolygon?: WorldPosition[];
   id: string;
   length: number;
   points: WorldPosition[];
   type: LayoutGuideType;
+}
+
+export interface ProductiveArea {
+  areaSquareMeters: number;
+  averageElevation: number;
+  averageSlopePercent: number;
+  centroid: WorldPosition;
+  holes?: WorldPosition[][];
+  id: string;
+  polygon: WorldPosition[];
+  type: ProductiveAreaType;
 }
 
 export interface BotanicalPlacement {
@@ -56,6 +78,8 @@ export interface BotanicalPlacement {
   managementProfile: PlantManagementProfile;
   operationalBand: OperationalBand;
   popularName: string;
+  productiveAreaId: string;
+  productiveAreaType: ProductiveAreaType;
   rowGuideId: string;
   scale: number;
   scientificName: string;
@@ -106,9 +130,13 @@ export interface ProjectReport {
     contourInterval: number;
     interRowCount: number;
     keylineCount: number;
+    productiveAreaCount: number;
+    productiveAreaCoverageSquareMeters: number;
+    productiveAreaDeadSpaceSquareMeters: number;
     plantingRowCount: number;
     rowSpacingMeters: number;
     serviceCorridorCount: number;
+    swaleCount: number;
   };
   infrastructure: {
     requested: number;
@@ -124,6 +152,7 @@ export interface ProjectReport {
     placedCount: number;
     rowPlantCount: number;
     rowsPopulated: number;
+    productiveAreasPopulated: number;
     serviceCorePlantCount: number;
     status: 'generated' | 'limited' | 'pending';
     strataUsed: Stratum[];
@@ -142,7 +171,9 @@ export interface GeneratedProject {
   interRows: LayoutGuide[];
   keylines: LayoutGuide[];
   plantingRows: LayoutGuide[];
+  productiveAreas: ProductiveArea[];
   serviceCorridors: LayoutGuide[];
+  swales: LayoutGuide[];
   plants: BotanicalPlacement[];
   report: ProjectReport;
 }

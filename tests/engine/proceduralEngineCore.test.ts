@@ -72,10 +72,13 @@ describe('generateProjectCore', () => {
     );
 
     expect(project.plantingRows.length).toBeGreaterThan(0);
+    expect(project.productiveAreas.length).toBeGreaterThan(0);
     expect(project.plants.length).toBeGreaterThan(0);
-    expect(project.interRows.length).toBeGreaterThan(0);
+    expect(project.interRows).toEqual([]);
     expect(project.report.botanical.status).toBe('generated');
     expect(project.report.layout.interRowCount).toBe(project.interRows.length);
+    expect(project.report.layout.productiveAreaCount).toBe(project.productiveAreas.length);
+    expect(project.report.layout.productiveAreaCoverageSquareMeters).toBeGreaterThan(0);
     expect(project.report.layout.rowSpacingMeters).toBeGreaterThan(0);
   });
 
@@ -98,7 +101,7 @@ describe('generateProjectCore', () => {
     expect(project.report.layout.plantingRowCount).toBe(project.plantingRows.length);
   });
 
-  it('populates interrows with low biomass species instead of arboreal consortia', () => {
+  it('keeps interrows disabled in the generated botanical report', () => {
     const project = generateProjectCore(
       createEngineInput({
         flatTerrain: true,
@@ -118,11 +121,12 @@ describe('generateProjectCore', () => {
     expect(project.report.botanical.rowPlantCount).toBe(
       project.plants.filter((plant) => plant.managementZone === 'ROW').length,
     );
-    expect(interRowPlants.length).toBeGreaterThan(0);
-    expect(interRowPlants.every((plant) => plant.stratum === 'BAIXO' || plant.stratum === 'RASTEIRO')).toBe(true);
+    expect(interRowPlants).toEqual([]);
+    expect(project.report.botanical.dominantInterRowProfile).toBe('NONE');
+    expect(project.report.botanical.averageInterRowMaintenanceCycleDays).toBe(0);
   });
 
-  it('uses mulch retention as the dominant interrow strategy in semiarid terrain', () => {
+  it('keeps interrows disabled in semiarid terrain as well', () => {
     const project = generateProjectCore(
       createEngineInput({
         climate: 'SEMIARIDO',
@@ -138,11 +142,12 @@ describe('generateProjectCore', () => {
       }),
     );
 
-    expect(project.report.botanical.dominantInterRowProfile).toBe('MULCH_RETENTION');
-    expect(project.report.botanical.averageInterRowMaintenanceCycleDays).toBeGreaterThanOrEqual(60);
+    expect(project.interRows).toEqual([]);
+    expect(project.report.botanical.dominantInterRowProfile).toBe('NONE');
+    expect(project.report.botanical.averageInterRowMaintenanceCycleDays).toBe(0);
   });
 
-  it('keeps service-adjacent interrows under mowed access management near the residence and nursery', () => {
+  it('does not allocate service-adjacent interrows near the residence and nursery', () => {
     const project = generateProjectCore(
       createEngineInput({
         flatTerrain: true,
@@ -164,8 +169,7 @@ describe('generateProjectCore', () => {
       (plant) => plant.operationalBand === 'SERVICE_CORE',
     );
 
-    expect(serviceManagedInterrows.length).toBeGreaterThan(0);
-    expect(serviceManagedInterrows.every((plant) => plant.managementProfile === 'MOWED_ACCESS')).toBe(true);
+    expect(serviceManagedInterrows).toEqual([]);
     expect(project.report.botanical.serviceCorePlantCount).toBe(serviceCorePlants.length);
   });
 
@@ -362,6 +366,61 @@ describe('generateProjectCore', () => {
       ),
     ).toBe(true);
     expect(Array.from(project.occupationGrid).some((value) => value === -4)).toBe(true);
+  });
+
+  it('classifies plants by productive area type and keeps flat aprons around the operational core', () => {
+    const project = generateProjectCore(
+      createEngineInput({
+        flatTerrain: true,
+        gridHeight: 181,
+        gridWidth: 181,
+        infrastructure: ['viveiro-mudas'],
+        polygon: [
+          { x: -70, y: -70 },
+          { x: 70, y: -70 },
+          { x: 70, y: 70 },
+          { x: -70, y: 70 },
+        ],
+      }),
+    );
+    const flatAreas = project.productiveAreas.filter((area) => area.type === 'FLAT_PRODUCTIVE');
+    const flatAreaPlants = project.plants.filter((plant) => plant.productiveAreaType === 'FLAT_PRODUCTIVE');
+
+    expect(flatAreas.length).toBeGreaterThan(0);
+    expect(flatAreaPlants.length).toBeGreaterThan(0);
+    expect(project.report.layout.productiveAreaDeadSpaceSquareMeters).toBeLessThanOrEqual(0.01);
+  });
+
+  it('fills inclined terrain with cultivable slope areas and corresponding plants', () => {
+    const project = generateProjectCore(
+      createEngineInput({
+        elevationFactory: ({ gridX, gridY }) =>
+          gridY < 34
+            ? Number((gridX * 0.015).toFixed(3))
+            : Number((((gridY - 34) * 0.34) + gridX * 0.015).toFixed(3)),
+        gridHeight: 121,
+        gridWidth: 121,
+        polygon: [
+          { x: -50, y: -50 },
+          { x: 50, y: -50 },
+          { x: 50, y: 50 },
+          { x: -50, y: 50 },
+        ],
+      }),
+    );
+    const slopeAreas = project.productiveAreas.filter((area) => area.type === 'SLOPE_PRODUCTIVE');
+    const slopePlants = project.plants.filter((plant) => plant.productiveAreaType === 'SLOPE_PRODUCTIVE');
+    const slopeStrata = new Set(slopePlants.map((plant) => plant.stratum));
+
+    expect(slopeAreas.length).toBeGreaterThan(0);
+    expect(slopePlants.length).toBeGreaterThan(0);
+    expect(slopePlants.length).toBeGreaterThanOrEqual(slopeAreas.length * 3);
+    expect(slopeAreas.some((area) => area.averageSlopePercent >= 18)).toBe(true);
+    expect(project.swales.length).toBeGreaterThan(0);
+    expect(project.report.layout.swaleCount).toBe(project.swales.length);
+    expect(project.swales.every((guide) => guide.type === 'SWALE')).toBe(true);
+    expect(slopeStrata.has('BAIXO') || slopeStrata.has('RASTEIRO')).toBe(true);
+    expect(slopeStrata.has('MEDIO') || slopeStrata.has('ALTO')).toBe(true);
   });
 });
 

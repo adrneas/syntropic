@@ -8,6 +8,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "SUBTROPICAL"],
     "waterRequirement": "HIGH",
     "spacingArea": 12,
+    "nitrogenFixer": false,
     "companions": ["banana-prata", "cafe-arabica", "feijao-guandu"],
     "antagonists": ["pinus-elliottii"]
   },
@@ -20,6 +21,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 10,
+    "nitrogenFixer": true,
     "companions": ["inga-edulis", "feijao-guandu", "abobora-moranga"],
     "antagonists": []
   },
@@ -32,6 +34,7 @@
     "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 9,
+    "nitrogenFixer": false,
     "companions": ["sisal", "palma-forrageira", "vetiver"],
     "antagonists": []
   },
@@ -44,6 +47,7 @@
     "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 16,
+    "nitrogenFixer": false,
     "companions": ["aveia-preta", "trevo-branco", "macieira"],
     "antagonists": []
   },
@@ -56,6 +60,7 @@
     "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "LOW",
     "spacingArea": 14,
+    "nitrogenFixer": false,
     "companions": ["erva-mate", "trevo-branco"],
     "antagonists": ["eucalyptus-grandis", "cacau"]
   },
@@ -68,6 +73,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 8,
+    "nitrogenFixer": true,
     "companions": ["cacau", "cafe-arabica", "feijao-guandu"],
     "antagonists": []
   },
@@ -80,6 +86,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 5,
+    "nitrogenFixer": false,
     "companions": ["eucalyptus-grandis", "cacau", "amendoim-forrageiro"],
     "antagonists": ["sisal"]
   },
@@ -92,6 +99,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 6,
+    "nitrogenFixer": true,
     "companions": ["feijao-guandu", "milho-crioulo", "acerola"],
     "antagonists": []
   },
@@ -104,6 +112,7 @@
     "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 7,
+    "nitrogenFixer": false,
     "companions": ["palma-forrageira", "vetiver", "mandioca"],
     "antagonists": []
   },
@@ -116,6 +125,7 @@
     "climateCompatibility": ["SUBTROPICAL", "TEMPERADO"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 5,
+    "nitrogenFixer": false,
     "companions": ["macieira", "trevo-branco", "aveia-preta"],
     "antagonists": []
   },
@@ -128,6 +138,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO"],
     "waterRequirement": "HIGH",
     "spacingArea": 3,
+    "nitrogenFixer": false,
     "companions": ["banana-prata", "inga-edulis", "cupuacu"],
     "antagonists": ["pinus-elliottii"]
   },
@@ -140,6 +151,7 @@
     "climateCompatibility": ["SUBTROPICAL", "TROPICAL_UMIDO", "TEMPERADO"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 2.5,
+    "nitrogenFixer": false,
     "companions": ["eucalyptus-grandis", "inga-edulis", "banana-prata"],
     "antagonists": []
   },
@@ -152,6 +164,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO"],
     "waterRequirement": "HIGH",
     "spacingArea": 3.5,
+    "nitrogenFixer": false,
     "companions": ["cacau", "banana-prata", "inga-edulis"],
     "antagonists": []
   },
@@ -164,6 +177,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 2,
+    "nitrogenFixer": false,
     "companions": ["mandioca", "amendoim-forrageiro", "abobora-moranga"],
     "antagonists": []
   },
@@ -176,6 +190,7 @@
     "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO", "SUBTROPICAL"],
     "waterRequirement": "LOW",
     "spacingArea": 2.25,
+    "nitrogenFixer": false,
     "companions": ["gliricidia-sepium", "vetiver", "sisal"],
     "antagonists": []
   },
@@ -188,6 +203,7 @@
     "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 3,
+    "nitrogenFixer": false,
     "companions": ["aveia-preta", "trevo-branco", "erva-mate"],
     "antagonists": []
   },
@@ -200,6 +216,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 1.2,
+    "nitrogenFixer": true,
     "companions": ["milho-crioulo", "mandioca", "abobora-moranga"],
     "antagonists": []
   },
@@ -212,6 +229,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 1.1,
+    "nitrogenFixer": false,
     "companions": ["milho-crioulo", "feijao-guandu", "amendoim-forrageiro"],
     "antagonists": []
   },
@@ -224,6 +242,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO", "TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 1,
+    "nitrogenFixer": false,
     "companions": ["feijao-guandu", "abobora-moranga", "mandioca"],
     "antagonists": []
   },
@@ -236,6 +255,7 @@
     "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 0.8,
+    "nitrogenFixer": false,
     "companions": ["trevo-branco", "macieira", "nogueira-peca"],
     "antagonists": []
   },
@@ -248,6 +268,7 @@
     "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO", "SUBTROPICAL"],
     "waterRequirement": "LOW",
     "spacingArea": 1.4,
+    "nitrogenFixer": false,
     "companions": ["umbuzeiro", "acerola", "palma-forrageira"],
     "antagonists": []
   },
@@ -260,6 +281,7 @@
     "climateCompatibility": ["TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 1.6,
+    "nitrogenFixer": false,
     "companions": ["moringa-oleifera", "acerola", "palma-forrageira"],
     "antagonists": ["banana-prata"]
   },
@@ -272,6 +294,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SEMIARIDO"],
     "waterRequirement": "LOW",
     "spacingArea": 0.6,
+    "nitrogenFixer": false,
     "companions": ["mandioca", "banana-prata", "feijao-guandu"],
     "antagonists": []
   },
@@ -284,6 +307,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 0.55,
+    "nitrogenFixer": false,
     "companions": ["milho-crioulo", "amendoim-forrageiro", "banana-prata"],
     "antagonists": []
   },
@@ -296,6 +320,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 0.45,
+    "nitrogenFixer": true,
     "companions": ["banana-prata", "mamoeiro", "mandioca"],
     "antagonists": []
   },
@@ -308,6 +333,7 @@
     "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 0.7,
+    "nitrogenFixer": false,
     "companions": ["milho-crioulo", "feijao-guandu", "mamoeiro"],
     "antagonists": []
   },
@@ -320,6 +346,7 @@
     "climateCompatibility": ["SEMIARIDO", "TROPICAL_SECO"],
     "waterRequirement": "LOW",
     "spacingArea": 0.9,
+    "nitrogenFixer": false,
     "companions": ["moringa-oleifera", "umbuzeiro", "vetiver"],
     "antagonists": ["cacau"]
   },
@@ -332,7 +359,216 @@
     "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
     "waterRequirement": "MEDIUM",
     "spacingArea": 0.35,
+    "nitrogenFixer": true,
     "companions": ["aveia-preta", "macieira", "erva-mate"],
+    "antagonists": []
+  },
+  {
+    "id": "abacate-hass",
+    "popularName": "Abacate",
+    "scientificName": "Persea americana",
+    "stratum": "ALTO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 7,
+    "nitrogenFixer": false,
+    "companions": ["banana-prata", "cafe-arabica", "amendoim-forrageiro"],
+    "antagonists": []
+  },
+  {
+    "id": "manga-tommy",
+    "popularName": "Mangueira",
+    "scientificName": "Mangifera indica",
+    "stratum": "EMERGENTE",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 14,
+    "nitrogenFixer": false,
+    "companions": ["banana-prata", "cacau", "amendoim-forrageiro"],
+    "antagonists": []
+  },
+  {
+    "id": "citrus-limon",
+    "popularName": "Limoeiro",
+    "scientificName": "Citrus limon",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL", "TEMPERADO"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 3,
+    "nitrogenFixer": false,
+    "companions": ["cafe-arabica", "feijao-guandu", "amendoim-forrageiro"],
+    "antagonists": []
+  },
+  {
+    "id": "jabuticaba",
+    "popularName": "Jabuticabeira",
+    "scientificName": "Plinia cauliflora",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 3.5,
+    "nitrogenFixer": false,
+    "companions": ["inga-edulis", "cafe-arabica", "banana-prata"],
+    "antagonists": []
+  },
+  {
+    "id": "pitanga",
+    "popularName": "Pitangueira",
+    "scientificName": "Eugenia uniflora",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "SUBTROPICAL", "TEMPERADO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 2.5,
+    "nitrogenFixer": false,
+    "companions": ["erva-mate", "macieira", "trevo-branco"],
+    "antagonists": []
+  },
+  {
+    "id": "goiaba",
+    "popularName": "Goiabeira",
+    "scientificName": "Psidium guajava",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TROPICAL_UMIDO", "TROPICAL_SECO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 3,
+    "nitrogenFixer": false,
+    "companions": ["banana-prata", "mamoeiro", "amendoim-forrageiro"],
+    "antagonists": []
+  },
+  {
+    "id": "caqui",
+    "popularName": "Caquizeiro",
+    "scientificName": "Diospyros kaki",
+    "stratum": "ALTO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 6,
+    "nitrogenFixer": false,
+    "companions": ["macieira", "aveia-preta", "trevo-branco"],
+    "antagonists": []
+  },
+  {
+    "id": "figo",
+    "popularName": "Figueira",
+    "scientificName": "Ficus carica",
+    "stratum": "ALTO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TEMPERADO", "SUBTROPICAL", "SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 5,
+    "nitrogenFixer": false,
+    "companions": ["nogueira-peca", "aveia-preta", "trevo-branco"],
+    "antagonists": []
+  },
+  {
+    "id": "oliveira",
+    "popularName": "Oliveira",
+    "scientificName": "Olea europaea",
+    "stratum": "ALTO",
+    "succession": "CLIMAX",
+    "climateCompatibility": ["TEMPERADO", "SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 7,
+    "nitrogenFixer": false,
+    "companions": ["aveia-preta", "trevo-branco", "figo"],
+    "antagonists": []
+  },
+  {
+    "id": "algaroba",
+    "popularName": "Algaroba",
+    "scientificName": "Prosopis juliflora",
+    "stratum": "EMERGENTE",
+    "succession": "SECUNDARIA_I",
+    "climateCompatibility": ["SEMIARIDO", "TROPICAL_SECO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 12,
+    "nitrogenFixer": true,
+    "companions": ["palma-forrageira", "sisal", "moringa-oleifera"],
+    "antagonists": []
+  },
+  {
+    "id": "juazeiro",
+    "popularName": "Juazeiro",
+    "scientificName": "Ziziphus joazeiro",
+    "stratum": "ALTO",
+    "succession": "CLIMAX",
+    "climateCompatibility": ["SEMIARIDO", "TROPICAL_SECO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 8,
+    "nitrogenFixer": false,
+    "companions": ["umbuzeiro", "palma-forrageira", "moringa-oleifera"],
+    "antagonists": []
+  },
+  {
+    "id": "licuri",
+    "popularName": "Licuri",
+    "scientificName": "Syagrus coronata",
+    "stratum": "ALTO",
+    "succession": "CLIMAX",
+    "climateCompatibility": ["SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 6,
+    "nitrogenFixer": false,
+    "companions": ["umbuzeiro", "palma-forrageira", "juazeiro"],
+    "antagonists": []
+  },
+  {
+    "id": "aroeira-salsa",
+    "popularName": "Aroeira Salsa",
+    "scientificName": "Schinus molle",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["SEMIARIDO", "TEMPERADO", "SUBTROPICAL"],
+    "waterRequirement": "LOW",
+    "spacingArea": 3,
+    "nitrogenFixer": false,
+    "companions": ["vetiver", "palma-forrageira", "oliveira"],
+    "antagonists": []
+  },
+  {
+    "id": "amora-preta",
+    "popularName": "Amora Preta",
+    "scientificName": "Rubus fruticosus",
+    "stratum": "BAIXO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 1.2,
+    "nitrogenFixer": false,
+    "companions": ["macieira", "aveia-preta", "trevo-branco"],
+    "antagonists": []
+  },
+  {
+    "id": "uva-isabel",
+    "popularName": "Videira",
+    "scientificName": "Vitis labrusca",
+    "stratum": "BAIXO",
+    "succession": "SECUNDARIA_II",
+    "climateCompatibility": ["TEMPERADO", "SUBTROPICAL"],
+    "waterRequirement": "MEDIUM",
+    "spacingArea": 1.5,
+    "nitrogenFixer": false,
+    "companions": ["macieira", "figo", "trevo-branco"],
+    "antagonists": []
+  },
+  {
+    "id": "mandacaru",
+    "popularName": "Mandacaru",
+    "scientificName": "Cereus jamacaru",
+    "stratum": "MEDIO",
+    "succession": "SECUNDARIA_I",
+    "climateCompatibility": ["SEMIARIDO"],
+    "waterRequirement": "LOW",
+    "spacingArea": 2,
+    "nitrogenFixer": false,
+    "companions": ["palma-forrageira", "sisal", "moringa-oleifera"],
     "antagonists": []
   }
 ]

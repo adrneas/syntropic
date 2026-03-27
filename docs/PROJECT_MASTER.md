@@ -17,7 +17,7 @@ The architecture dictates a strict separation of concerns:
 1.  **Persistence Layer (Database):** Stores botanical/infrastructure component data and user project states.
 2.  **Core Data Layer (Terrain Matrix):** Highly efficient data structures (e.g., `Float32Array`) representing altimetry meshes and biological occupation matrices.
 3.  **Procedural Engine (Core Logic):** The deterministic algorithmic module. Processes inputs (Core Data + Wizard State) to output the final spatial layout.
-4.  **Renderer Layer (WebGL):** Visual representation of the Core Data. Handles 2D and Isometric projections.
+4.  **Renderer Layer (WebGL):** Visual representation of the Core Data. Handles 2D and 3D.
 5.  **Interface Layer (React/UI):** Manages user interactions, the Wizard state machine, and control panels.
 
 ---

@@ -22,6 +22,8 @@ import {
 } from '../core/utils/terrain';
 import { generateBotanicalLayout } from './botanicalLayout';
 import { generatePlantingLayout } from './plantingLayout';
+import { generateProductiveAreas } from './productiveAreas';
+import { generateSwales } from './swales';
 import type { ProceduralEngineInput } from './types';
 import { analyzeTopography, FLAT_SLOPE_THRESHOLD_PERCENT } from './topography';
 
@@ -107,18 +109,46 @@ export function generateProjectCore(input: ProceduralEngineInput): GeneratedProj
     slopeGrid: topography.slopeGrid,
     terrain: input.terrain,
   });
-  const botanicalServiceAnchors = buildBotanicalServiceAnchors(residence, placements);
+  const botanicalServiceAnchors = buildBotanicalServiceAnchors(
+    residence,
+    placements,
+    topography.flowDirectionGrid,
+    input.terrain,
+  );
   const seed = hashSeed(input);
-  const plantingLayout = generatePlantingLayout(input.terrain, polygonMask, topography.slopeGrid);
+  const plantingLayout = generatePlantingLayout(
+    input.terrain,
+    polygonMask,
+    topography.slopeGrid,
+    occupationGrid,
+  );
+  const productiveAreas = generateProductiveAreas({
+    guides: [...plantingLayout.keylines, ...plantingLayout.plantingRows],
+    occupationGrid,
+    polygonMask,
+    rowSpacingMeters: plantingLayout.rowSpacingMeters,
+    slopeGrid: topography.slopeGrid,
+    terrain: input.terrain,
+  });
+  const swales = generateSwales({
+    guides: [...plantingLayout.keylines, ...plantingLayout.plantingRows],
+    occupationGrid,
+    productiveAreas: productiveAreas.areas,
+    rowSpacingMeters: plantingLayout.rowSpacingMeters,
+    terrain: input.terrain,
+  });
   const botanicalLayout = generateBotanicalLayout({
     climate: input.climate,
-    interRows: plantingLayout.interRows,
+    flowAccumulationGrid: topography.flowAccumulationGrid,
+    guides: [...plantingLayout.keylines, ...plantingLayout.plantingRows],
+    northAngle: input.terrain.northAngle,
     occupationGrid,
-    plantingRows: plantingLayout.plantingRows,
     polygonMask,
+    productiveAreas: productiveAreas.areas,
     seed,
     serviceAnchors: botanicalServiceAnchors,
     speciesCatalog: botanicalCatalog,
+    swales,
     terrain: input.terrain,
   });
   const placedCount = placements.filter((placement) => placement.status === 'placed').length;
@@ -131,9 +161,13 @@ export function generateProjectCore(input: ProceduralEngineInput): GeneratedProj
       contourInterval: plantingLayout.contourInterval,
       interRowCount: plantingLayout.interRows.length,
       keylineCount: plantingLayout.keylines.length,
+      productiveAreaCount: productiveAreas.areas.length,
+      productiveAreaCoverageSquareMeters: productiveAreas.coverageSquareMeters,
+      productiveAreaDeadSpaceSquareMeters: productiveAreas.deadSpaceSquareMeters,
       plantingRowCount: plantingLayout.plantingRows.length,
       rowSpacingMeters: plantingLayout.rowSpacingMeters,
       serviceCorridorCount: serviceCorridors.length,
+      swaleCount: swales.length,
     },
     infrastructure: {
       requested: input.preferences.infrastructure.length,
@@ -149,6 +183,7 @@ export function generateProjectCore(input: ProceduralEngineInput): GeneratedProj
       placedCount: botanicalLayout.plants.length,
       rowPlantCount: botanicalLayout.rowPlantCount,
       rowsPopulated: botanicalLayout.rowsPopulated,
+      productiveAreasPopulated: botanicalLayout.rowsPopulated,
       serviceCorePlantCount: botanicalLayout.serviceCorePlantCount,
       status: botanicalLayout.status,
       strataUsed: botanicalLayout.strataUsed,
@@ -167,7 +202,9 @@ export function generateProjectCore(input: ProceduralEngineInput): GeneratedProj
     interRows: plantingLayout.interRows,
     keylines: plantingLayout.keylines,
     plantingRows: plantingLayout.plantingRows,
+    productiveAreas: productiveAreas.areas,
     serviceCorridors,
+    swales,
     plants: botanicalLayout.plants,
     report,
   };
@@ -411,16 +448,20 @@ function placeInfrastructure(
   residenceGrid: GridCoordinate,
   topographySummary: TopographySummary,
 ): InfrastructurePlacement[] {
+  const placedSoFar: InfrastructurePlacement[] = [];
+
   return input.preferences.infrastructure.map((infrastructureId, placementIndex) => {
     const infrastructure = infrastructureCatalog.find((candidate) => candidate.id === infrastructureId);
 
     if (!infrastructure) {
-      return {
+      const result: InfrastructurePlacement = {
         infrastructureId,
         name: infrastructureId,
         status: 'skipped',
         rationale: 'Infraestrutura nao encontrada no catalogo local.',
       };
+      placedSoFar.push(result);
+      return result;
     }
 
     const bestCandidate = findPlacementCandidate(
@@ -431,15 +472,18 @@ function placeInfrastructure(
       occupationGrid,
       residenceGrid,
       topographySummary,
+      placedSoFar,
     );
 
     if (!bestCandidate) {
-      return {
+      const result: InfrastructurePlacement = {
         infrastructureId: infrastructure.id,
         name: infrastructure.name,
         status: 'skipped',
         rationale: 'Nenhuma area elegivel respeitou poligono, inclinacao e distancia da residencia.',
       };
+      placedSoFar.push(result);
+      return result;
     }
 
     fillFootprint(
@@ -452,7 +496,7 @@ function placeInfrastructure(
       placementIndex + 1,
     );
 
-    return {
+    const result: InfrastructurePlacement = {
       infrastructureId: infrastructure.id,
       name: infrastructure.name,
       category: infrastructure.category,
@@ -469,12 +513,28 @@ function placeInfrastructure(
       },
       rationale: bestCandidate.rationale,
     };
+    placedSoFar.push(result);
+    return result;
   });
 }
+
+// D8 neighbor offsets matching topography.ts flow direction encoding
+const D8_OFFSETS = [
+  { x: 0, y: -1 },
+  { x: 1, y: -1 },
+  { x: 1, y: 0 },
+  { x: 1, y: 1 },
+  { x: 0, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: 0 },
+  { x: -1, y: -1 },
+] as const;
 
 function buildBotanicalServiceAnchors(
   residence: ResidencePlacement,
   placements: InfrastructurePlacement[],
+  flowDirectionGrid?: Int8Array,
+  terrain?: ProceduralEngineInput['terrain'],
 ): BotanicalServiceAnchor[] {
   const anchors: BotanicalServiceAnchor[] = [
     {
@@ -485,25 +545,159 @@ function buildBotanicalServiceAnchors(
   ];
 
   placements.forEach((placement) => {
-    if (
-      placement.status !== 'placed' ||
-      !placement.gridPosition ||
-      placement.category !== 'PROCESSAMENTO'
-    ) {
+    if (placement.status !== 'placed' || !placement.gridPosition) {
       return;
     }
 
-    anchors.push({
-      center: placement.gridPosition,
-      kind: 'PROCESSAMENTO',
-      radiusMeters:
-        placement.infrastructureId === 'viveiro-mudas'
-          ? 20
-          : placement.infrastructureId === 'compostagem'
-            ? 18
-            : 16,
-    });
+    const id = placement.infrastructureId;
+
+    switch (id) {
+      // PROCESSAMENTO
+      case 'viveiro-mudas':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'NURSERY',
+          kind: 'PROCESSAMENTO',
+          radiusMeters: 20,
+        });
+        break;
+      case 'compostagem':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'FERTILITY',
+          kind: 'PROCESSAMENTO',
+          radiusMeters: 18,
+        });
+        break;
+
+      // ANIMAL
+      case 'aviario-movel':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'FERTILITY',
+          kind: 'ANIMAL',
+          radiusMeters: 25,
+        });
+        break;
+      case 'apiario':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'POLLINATION',
+          kind: 'ANIMAL',
+          radiusMeters: 40,
+        });
+        break;
+
+      // AGUA
+      case 'lago-aquicultura':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'FERTIGATION',
+          kind: 'AGUA',
+          radiusMeters: 30,
+        });
+        break;
+
+      // ENERGIA
+      case 'biodigestor':
+        anchors.push({
+          center: placement.gridPosition,
+          influence: 'FERTIGATION',
+          kind: 'PROCESSAMENTO',
+          radiusMeters: 22,
+        });
+        break;
+
+      default:
+        if (placement.category === 'PROCESSAMENTO') {
+          anchors.push({
+            center: placement.gridPosition,
+            kind: 'PROCESSAMENTO',
+            radiusMeters: 16,
+          });
+        }
+        break;
+    }
   });
+
+  // Trace effluent corridors downhill from fertigation sources (lago, biodigestor)
+  if (flowDirectionGrid && terrain) {
+    const fertigationAnchors = anchors.filter((a) => a.influence === 'FERTIGATION');
+
+    for (let i = 0; i < fertigationAnchors.length; i += 1) {
+      const source = fertigationAnchors[i];
+      const corridorAnchors = traceEffluentCorridor(
+        source.center,
+        flowDirectionGrid,
+        terrain,
+      );
+
+      for (let j = 0; j < corridorAnchors.length; j += 1) {
+        anchors.push(corridorAnchors[j]);
+      }
+    }
+  }
+
+  return anchors;
+}
+
+/**
+ * Trace the downhill flow path from a fertigation source, creating smaller
+ * FERTIGATION influence anchors along the corridor. Effluent nutrients
+ * diminish with distance, so radius and influence shrink downstream.
+ */
+function traceEffluentCorridor(
+  sourceGrid: GridCoordinate,
+  flowDirectionGrid: Int8Array,
+  terrain: ProceduralEngineInput['terrain'],
+): BotanicalServiceAnchor[] {
+  const anchors: BotanicalServiceAnchor[] = [];
+  const maxSteps = 40; // limit trace length
+  const anchorInterval = 8; // place an anchor every N cells
+  let currentX = sourceGrid.x;
+  let currentY = sourceGrid.y;
+  const visited = new Set<number>();
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const index = currentY * terrain.gridWidth + currentX;
+
+    if (visited.has(index)) {
+      break; // cycle detected
+    }
+
+    visited.add(index);
+
+    const direction = flowDirectionGrid[index];
+
+    if (direction < 0 || direction > 7) {
+      break; // sink or boundary
+    }
+
+    const offset = D8_OFFSETS[direction];
+    const nextX = currentX + offset.x;
+    const nextY = currentY + offset.y;
+
+    if (nextX < 0 || nextX >= terrain.gridWidth || nextY < 0 || nextY >= terrain.gridHeight) {
+      break;
+    }
+
+    currentX = nextX;
+    currentY = nextY;
+
+    // Place an anchor at regular intervals along the corridor
+    if ((step + 1) % anchorInterval === 0) {
+      // Nutrient concentration diminishes with distance: radius shrinks
+      const distanceFactor = 1 - step / maxSteps;
+      const radius = Math.max(6, Math.round(18 * distanceFactor));
+
+      anchors.push({
+        center: { x: currentX, y: currentY },
+        influence: 'FERTIGATION',
+        kind: 'AGUA',
+        radiusMeters: radius,
+      });
+    }
+  }
 
   return anchors;
 }
@@ -516,9 +710,13 @@ function findPlacementCandidate(
   occupationGrid: Int32Array,
   residenceGrid: GridCoordinate,
   topographySummary: TopographySummary,
+  placedSoFar: InfrastructurePlacement[] = [],
 ): PlacementCandidate | null {
   const widthCells = metersToCells(infrastructure.footprintWidth, terrain.cellSize);
   const lengthCells = metersToCells(infrastructure.footprintLength, terrain.cellSize);
+
+  // Collect world positions of preferred-near infrastructure already placed
+  const dependencyPositions = collectDependencyPositions(infrastructure, placedSoFar, terrain);
 
   let bestCandidate: PlacementCandidate | null = null;
 
@@ -536,6 +734,7 @@ function findPlacementCandidate(
         occupationGrid,
         residenceGrid,
         topographySummary,
+        dependencyPositions,
       );
 
       if (!fit || (bestCandidate && fit.score >= bestCandidate.score)) {
@@ -561,6 +760,7 @@ function evaluateInfrastructureFootprint(
   occupationGrid: Int32Array,
   residenceGrid: GridCoordinate,
   topographySummary: TopographySummary,
+  dependencyPositions: Array<{ x: number; y: number }> = [],
 ): PlacementCandidate | null {
   const terrainTolerance = toTerrainToleranceProfile(infrastructure.placementRules);
   const candidate = evaluateRectCandidate({
@@ -591,6 +791,10 @@ function evaluateInfrastructureFootprint(
   const nearestSinkDistance = infrastructure.placementRules.requiresKeyline
     ? getNearestSinkDistance(candidate.center, sinkCoordinates, terrain.cellSize)
     : Number.POSITIVE_INFINITY;
+  const dependencyProximityScore = getDependencyProximityScore(
+    candidate.worldPoint,
+    dependencyPositions,
+  );
   const score = buildPlacementScore(
     infrastructure,
     distanceToResidence,
@@ -601,6 +805,7 @@ function evaluateInfrastructureFootprint(
     candidate.elevationSpan,
     candidate.criticalCellRatio,
     candidate.flatCellRatio,
+    dependencyProximityScore,
   );
 
   return {
@@ -717,6 +922,7 @@ function buildPlacementScore(
   elevationSpan: number,
   criticalCellRatio: number,
   flatCellRatio: number,
+  dependencyProximityScore = 0,
 ): number {
   const distanceScore = getPreferredDistancePenalty(infrastructure.placementRules, distanceToResidence);
   const hydrologyScore = infrastructure.placementRules.requiresKeyline ? nearestSinkDistance * 1.8 : 0;
@@ -733,8 +939,69 @@ function buildPlacementScore(
     maxSlope * 1.2 +
     elevationSpan * 8 +
     criticalCellRatio * 40 -
-    flatCellRatio * (infrastructure.placementRules.topographyPreference === 'STABLE' ? 24 : 14)
+    flatCellRatio * (infrastructure.placementRules.topographyPreference === 'STABLE' ? 24 : 14) -
+    dependencyProximityScore
   );
+}
+
+/**
+ * Collect world positions of already-placed infrastructure that this one
+ * should be near (based on preferredNearInfrastructure).
+ */
+function collectDependencyPositions(
+  infrastructure: IInfrastructure,
+  placedSoFar: InfrastructurePlacement[],
+  terrain: ProceduralEngineInput['terrain'],
+): Array<{ x: number; y: number }> {
+  const preferredIds = infrastructure.preferredNearInfrastructure;
+
+  if (!preferredIds || preferredIds.length === 0) {
+    return [];
+  }
+
+  const positions: Array<{ x: number; y: number }> = [];
+
+  for (let i = 0; i < placedSoFar.length; i += 1) {
+    const placed = placedSoFar[i];
+
+    if (placed.status !== 'placed' || !placed.worldPosition) {
+      continue;
+    }
+
+    if (preferredIds.includes(placed.infrastructureId)) {
+      positions.push({ x: placed.worldPosition.x, y: placed.worldPosition.y });
+    }
+  }
+
+  return positions;
+}
+
+/**
+ * Score bonus (positive = better) for proximity to dependency infrastructure.
+ * Returns a value that will be subtracted from the penalty score (lower = better).
+ * Max bonus ~20 when within 15m, tapering to 0 at 60m.
+ */
+function getDependencyProximityScore(
+  candidateWorld: { x: number; y: number },
+  dependencyPositions: Array<{ x: number; y: number }>,
+): number {
+  if (dependencyPositions.length === 0) {
+    return 0;
+  }
+
+  let totalBonus = 0;
+
+  for (let i = 0; i < dependencyPositions.length; i += 1) {
+    const dep = dependencyPositions[i];
+    const distance = Math.hypot(candidateWorld.x - dep.x, candidateWorld.y - dep.y);
+
+    // Bonus tapers linearly from 20 (at 0m) to 0 (at 60m)
+    if (distance < 60) {
+      totalBonus += Math.max(0, 20 * (1 - distance / 60));
+    }
+  }
+
+  return totalBonus;
 }
 
 function describePlacement(
@@ -1753,6 +2020,7 @@ interface ServiceCorridorTarget {
 
 interface BotanicalServiceAnchor {
   center: GridCoordinate;
-  kind: 'PROCESSAMENTO' | 'RESIDENCE';
+  influence?: 'NONE' | 'FERTILITY' | 'POLLINATION' | 'FERTIGATION' | 'NURSERY';
+  kind: 'ANIMAL' | 'AGUA' | 'PROCESSAMENTO' | 'RESIDENCE';
   radiusMeters: number;
 }

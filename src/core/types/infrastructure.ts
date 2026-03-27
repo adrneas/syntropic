@@ -9,6 +9,9 @@ export interface IInfrastructure {
   footprintWidth: number; // Ocupacao em X na grade (metros)
   footprintLength: number; // Ocupacao em Y na grade (metros)
 
+  // IDs de infraestruturas que devem ficar próximas (cadeia produtiva)
+  preferredNearInfrastructure?: string[];
+
   // Regras de posicionamento para o motor procedural
   placementRules: {
     requiresKeyline: boolean;
